@@ -81,20 +81,7 @@ class Kernel {
    * @param kernel Двумерный массив, содержащий значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  Kernel(const size_t size, const int** kernel)
-      : size_{size} {
-    if ((size % 2) == 0u) {
-      throw KernelException(
-          "Неверный размер ядра. Размер должен быть нечетным");
-    }
-    kernel_ = new int*[size];
-    for (int i = 0; i < size; i++) {
-      kernel_[i] = new int[size];
-      for (int j = 0; j < size; j++) {
-        kernel_[i][j] = kernel[i][j];
-      }
-    }
-  }
+  Kernel(const size_t size, const int** kernel);
 
   /**
    * @brief Конструктор с инициализатором списка.
@@ -107,31 +94,7 @@ class Kernel {
    * заданным.
    */
   Kernel(const size_t size,
-         const std::initializer_list<std::initializer_list<int>> kernel)
-      : size_{size} {
-    if ((size % 2) == 0u) {
-      throw KernelException(
-          "Неверный размер ядра. Размер должен быть нечетным");
-    }
-    if (kernel.size() != size) {
-      throw KernelException(
-          "Неверный размер ядра. Размер ядра не совпадает с заданным");
-    }
-    kernel_ = new int*[size];
-    size_t kernel_i = 0, kernel_j = 0;
-    for (auto i : kernel) {
-      if (i.size() != size) {
-        throw KernelException(
-            "Неверный размер ядра. Размер ядра не совпадает с заданным");
-      }
-      kernel_[kernel_i] = new int[size];
-      for (auto j : i) {
-        kernel_[kernel_i][kernel_j] = j;
-        kernel_j++;
-      }
-      kernel_i++;
-    }
-  }
+         const std::initializer_list<std::initializer_list<int>> kernel);
 
   /**
    * @brief Конструктор копирования.
@@ -140,28 +103,14 @@ class Kernel {
    *
    * @param other Исходный объект Kernel для копирования.
    */
-  Kernel(const Kernel& other)
-      : size_(other.size_) {
-    kernel_ = new int*[size_];
-    for (size_t i = 0; i < size_; i++) {
-      kernel_[i] = new int[size_];
-      for (size_t j = 0; j < size_; j++) {
-        kernel_[i][j] = other.kernel_[i][j];
-      }
-    }
-  }
+  Kernel(const Kernel& other);
 
   /**
    * @brief Деструктор ядра.
    *
    * Освобождает выделенную память.
    */
-  ~Kernel() {
-    for (int i = 0; i < size_; i++) {
-      delete[] kernel_[i];
-    }
-    delete[] kernel_;
-  }
+  ~Kernel();
 
   /**
    * @brief Устанавливает новое ядро.
@@ -172,24 +121,7 @@ class Kernel {
    * @param kernel Двумерный массив, содержащий новые значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  void Set(const size_t size, const int** kernel) {
-    if ((size % 2) == 0u) {
-      throw KernelException(
-          "Неверный размер ядра. Размер должен быть нечетным");
-    }
-    for (size_t i = 0; i < size_; i++) {
-      delete[] kernel_[i];
-    }
-    delete[] kernel_;
-    size_ = size;
-    kernel_ = new int*[size];
-    for (size_t i = 0; i < size; i++) {
-      kernel_[i] = new int[size];
-      for (size_t j = 0; j < size; j++) {
-        kernel_[i][j] = kernel[i][j];
-      }
-    }
-  }
+  void Set(const size_t size, const int** kernel);
 
   /**
    * @brief Оператор присваивания.
@@ -199,21 +131,7 @@ class Kernel {
    * @param other Исходный объект Kernel для копирования.
    * @return Ссылка на текущий объект.
    */
-  Kernel& operator=(const Kernel& other) {
-    size_ = other.size_;
-    for (size_t i = 0; i < size_; i++) {
-      delete[] kernel_[i];
-    }
-    delete[] kernel_;
-    kernel_ = new int*[size_];
-    for (size_t i = 0; i < size_; i++) {
-      kernel_[i] = new int[size_];
-      for (size_t j = 0; j < size_; j++) {
-        kernel_[i][j] = other.kernel_[i][j];
-      }
-    }
-    return *this;
-  }
+  Kernel& operator=(const Kernel& other);
 
   /**
    * @brief Поворачивает ядро на заданный угол.
@@ -224,40 +142,23 @@ class Kernel {
    * @param degrees Угол поворота (90, 180 или 270 градусов).
    * @return Повернутое ядро.
    */
-  Kernel Rotate(const KernelRotationDegrees degrees) const {
-    Kernel rotated(*this);
-    switch (degrees) {
-      case KernelRotationDegrees::DEGREES_90: {
-        for (size_t i = 0; i < size_; i++) {
-          for (size_t j = 0; i < size_; j++) {
-            rotated.kernel_[j][size_ - 1 - i] = kernel_[i][j];
-          }
-        }
-        break;
-      }
-      case KernelRotationDegrees::DEGREES_180: {
-        for (size_t i = 0; i < size_; i++) {
-          for (size_t j = 0; i < size_; j++) {
-            rotated.kernel_[size_ - 1 - i][size_ - 1 - j] = kernel_[i][j];
-          }
-        }
-        break;
-      }
-      case KernelRotationDegrees::DEGREES_270: {
-        for (size_t i = 0; i < size_; i++) {
-          for (size_t j = 0; i < size_; j++) {
-            rotated.kernel_[size_ - 1 - j][i] = kernel_[i][j];
-          }
-        }
-        break;
-      }
-    }
-    return rotated;
-  }
+  Kernel Rotate(const KernelRotationDegrees degrees) const;
 
-  size_t GetSize() const {
-    return size_;
-  }
+  /**
+   * @brief Возвращает размер ядра.
+   *
+   * @return Размер ядра.
+   */
+  size_t GetSize() const;
+
+  /**
+   * @brief Возвращает значение ядра в заданной позиции.
+   *
+   * @param x Координата x.
+   * @param y Координата y.
+   * @return Значение ядра в позиции (x, y).
+   */
+  int Get(const size_t x, const size_t y) const;
 };
 
 /**
