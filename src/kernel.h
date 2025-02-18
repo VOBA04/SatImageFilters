@@ -9,23 +9,27 @@
  *
  */
 class KernelException : public std::exception {
-private:
-  std::string message; ///< Сообщение об ошибке
+ private:
+  std::string message_;  ///< Сообщение об ошибке
 
-public:
+ public:
   /**
    * @brief Конструктор исключения KernelException.
    *
    * @param message Сообщение, описывающее ошибку.
    */
-  KernelException(const std::string &message) : message{message} {}
+  explicit KernelException(const std::string& message)
+      : message_{message} {
+  }
 
   /**
    * @brief Получить сообщение об ошибке.
    *
    * @return Указатель на строку с описанием ошибки.
    */
-  const char *what() const noexcept override { return message.c_str(); }
+  const char* what() const noexcept override {
+    return message_.c_str();
+  }
 };
 
 /**
@@ -34,12 +38,12 @@ public:
  * Используется для задания матрицы свертки, применяемой к изображениям.
  */
 class Kernel {
-private:
-  size_t width_;  ///< Ширина ядра
-  size_t height_; ///< Высота ядра
-  int **kernel_ = NULL; ///< Двумерный массив, представляющий ядро
+ private:
+  size_t width_;   ///< Ширина ядра
+  size_t height_;  ///< Высота ядра
+  int** kernel_ = nullptr;  ///< Двумерный массив, представляющий ядро
 
-public:
+ public:
   /**
    * @brief Конструктор по умолчанию.
    *
@@ -57,15 +61,19 @@ public:
    * @param kernel Двумерный массив, содержащий значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  Kernel(const size_t size, const int **kernel) : width_{size}, height_{size} {
-    if (!(size % 2))
+  Kernel(const size_t size, const int** kernel)
+      : width_{size},
+        height_{size} {
+    if ((size % 2) == 0u) {
       throw KernelException(
           "Неверный размер ядра. Размер должен быть нечетным");
-    kernel_ = new int *[size];
+    }
+    kernel_ = new int*[size];
     for (int i = 0; i < size; i++) {
       kernel_[i] = new int[size];
-      for (int j = 0; j < size; j++) // исправлена ошибка (i -> j)
+      for (int j = 0; j < size; j++) {
         kernel_[i][j] = kernel[i][j];
+      }
     }
   }
 
@@ -75,8 +83,9 @@ public:
    * Освобождает выделенную память.
    */
   ~Kernel() {
-    for (int i = 0; i < height_; i++)
+    for (int i = 0; i < height_; i++) {
       delete[] kernel_[i];
+    }
     delete[] kernel_;
   }
 
@@ -89,22 +98,25 @@ public:
    * @param kernel Двумерный массив, содержащий новые значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  void Set(const size_t size, const int **kernel) {
-    if (!(size % 2))
+  void Set(const size_t size, const int** kernel) {
+    if ((size % 2) == 0u) {
       throw KernelException(
           "Неверный размер ядра. Размер должен быть нечетным");
+    }
 
-    for (int i = 0; i < height_; i++)
+    for (int i = 0; i < height_; i++) {
       delete[] kernel_[i];
+    }
     delete[] kernel_;
 
     width_ = size;
     height_ = size;
-    kernel_ = new int *[size];
+    kernel_ = new int*[size];
     for (int i = 0; i < size; i++) {
       kernel_[i] = new int[size];
-      for (int j = 0; j < size; j++)
+      for (int j = 0; j < size; j++) {
         kernel_[i][j] = kernel[i][j];
+      }
     }
   }
 };
