@@ -165,12 +165,26 @@ class Kernel {
  * @brief Константа. Стандартное ядро свертки Собеля.
  *
  * Используется для выделения границ в изображениях.
+ *
+ * Ядро:
+ * \code
+ * -1  0  1
+ * -2  0  2
+ * -1  0  1
+ * \endcode
  */
-const Kernel kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}});
+extern const Kernel kKernelSobel;
 
 /**
  * @brief Константа. Стандартное ядро свертки Превитта.
  *
  * Используется для выделения границ в изображениях.
+ *
+ * Ядро:
+ * \code
+ * -1  0  1
+ * -1  0  1
+ * -1  0  1
+ * \endcode
  */
-const Kernel kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}});
+extern const Kernel kKernelPrewitt;

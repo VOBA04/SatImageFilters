@@ -1,5 +1,8 @@
 #include "kernel.h"
 
+const Kernel kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}});
+const Kernel kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}});
+
 Kernel::Kernel()
     : size_(0),
       kernel_(nullptr) {
