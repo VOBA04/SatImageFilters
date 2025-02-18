@@ -60,7 +60,7 @@ enum class KernelRotationDegrees {
  */
 class Kernel {
  private:
-  size_t size_;  ///< Размер ядра
+  size_t size_ = 0;  ///< Размер ядра
   int** kernel_ = nullptr;  ///< Двумерный массив, представляющий ядро
 
  public:
@@ -177,15 +177,15 @@ class Kernel {
       throw KernelException(
           "Неверный размер ядра. Размер должен быть нечетным");
     }
-    for (int i = 0; i < size_; i++) {
+    for (size_t i = 0; i < size_; i++) {
       delete[] kernel_[i];
     }
     delete[] kernel_;
     size_ = size;
     kernel_ = new int*[size];
-    for (int i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
       kernel_[i] = new int[size];
-      for (int j = 0; j < size; j++) {
+      for (size_t j = 0; j < size; j++) {
         kernel_[i][j] = kernel[i][j];
       }
     }
@@ -201,14 +201,14 @@ class Kernel {
    */
   Kernel& operator=(const Kernel& other) {
     size_ = other.size_;
-    for (int i = 0; i < size_; i++) {
+    for (size_t i = 0; i < size_; i++) {
       delete[] kernel_[i];
     }
     delete[] kernel_;
     kernel_ = new int*[size_];
-    for (int i = 0; i < size_; i++) {
+    for (size_t i = 0; i < size_; i++) {
       kernel_[i] = new int[size_];
-      for (int j = 0; j < size_; j++) {
+      for (size_t j = 0; j < size_; j++) {
         kernel_[i][j] = other.kernel_[i][j];
       }
     }
@@ -228,24 +228,24 @@ class Kernel {
     Kernel rotated(*this);
     switch (degrees) {
       case KernelRotationDegrees::DEGREES_90: {
-        for (int i = 0; i < size_; i++) {
-          for (int j = 0; j < size_; j++) {
+        for (size_t i = 0; i < size_; i++) {
+          for (size_t j = 0; i < size_; j++) {
             rotated.kernel_[j][size_ - 1 - i] = kernel_[i][j];
           }
         }
         break;
       }
       case KernelRotationDegrees::DEGREES_180: {
-        for (int i = 0; i < size_; i++) {
-          for (int j = 0; j < size_; j++) {
+        for (size_t i = 0; i < size_; i++) {
+          for (size_t j = 0; i < size_; j++) {
             rotated.kernel_[size_ - 1 - i][size_ - 1 - j] = kernel_[i][j];
           }
         }
         break;
       }
       case KernelRotationDegrees::DEGREES_270: {
-        for (int i = 0; i < size_; i++) {
-          for (int j = 0; j < size_; j++) {
+        for (size_t i = 0; i < size_; i++) {
+          for (size_t j = 0; i < size_; j++) {
             rotated.kernel_[size_ - 1 - j][i] = kernel_[i][j];
           }
         }
@@ -253,6 +253,10 @@ class Kernel {
       }
     }
     return rotated;
+  }
+
+  size_t GetSize() const {
+    return size_;
   }
 };
 
