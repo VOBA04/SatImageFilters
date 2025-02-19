@@ -8,6 +8,8 @@
 images
 .cache
 doxygen
+test_images
+show_images.py
 
 # Local History for Visual Studio Code
 .history/
