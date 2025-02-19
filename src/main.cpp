@@ -2,6 +2,7 @@
 #include <filesystem>
 #include "kernel.h"
 #include "tiff_image.h"
+#include <stdexcept>
 #include <string>
 
 namespace fs = std::filesystem;
@@ -24,7 +25,14 @@ int main() {
     if (entry.is_regular_file()) {
       std::string image_name = entry.path().filename().string();
       std::string image_path = entry.path().string();
-      TIFFImage<uint16_t> image(image_path);
+      TIFFImage<uint16_t> image;
+      try {
+        image.Open(image_path);
+      } catch (std::runtime_error& e) {
+        std::cerr << "Ошибка при загрузке изображения " << image_name << ": "
+                  << e.what() << std::endl;
+        continue;
+      }
       TIFFImage<uint16_t> prewitt_image = image.SetKernel(kKernelPrewitt);
       prewitt_image.Save(prewitt_images_dir / image_name);
       TIFFImage<uint16_t> sobel_image = image.SetKernel(kKernelSobel);
