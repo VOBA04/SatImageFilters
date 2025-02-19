@@ -34,7 +34,13 @@ int main() {
         continue;
       }
       TIFFImage<uint16_t> prewitt_image = image.SetKernel(kKernelPrewitt);
+      if (!fs::exists(prewitt_images_dir)) {
+        fs::create_directory(prewitt_images_dir);
+      }
       prewitt_image.Save(prewitt_images_dir / image_name);
+      if (!fs::exists(sobel_images_dir)) {
+        fs::create_directory(sobel_images_dir);
+      }
       TIFFImage<uint16_t> sobel_image = image.SetKernel(kKernelSobel);
       sobel_image.Save(sobel_images_dir / image_name);
     }
