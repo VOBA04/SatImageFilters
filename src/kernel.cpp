@@ -33,13 +33,14 @@ Kernel::Kernel(const size_t size,
         "Неверный размер ядра. Размер ядра не совпадает с заданным");
   }
   kernel_ = new int*[size];
-  size_t kernel_i = 0, kernel_j = 0;
+  size_t kernel_i = 0;
   for (auto i : kernel) {
     if (i.size() != size) {
       throw KernelException(
           "Неверный размер ядра. Размер ядра не совпадает с заданным");
     }
     kernel_[kernel_i] = new int[size];
+    size_t kernel_j = 0;
     for (auto j : i) {
       kernel_[kernel_i][kernel_j] = j;
       kernel_j++;
