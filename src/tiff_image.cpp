@@ -142,7 +142,7 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
         y >= static_cast<int>(height_)) {
       return 0;
     }
-    return image_[y][x];
+    return image_[x][y];
   } else {
     throw std::runtime_error("Изображение не загружено");
   }
