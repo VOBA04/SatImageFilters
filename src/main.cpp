@@ -25,15 +25,19 @@ int main() {
     if (entry.is_regular_file()) {
       std::string image_name = entry.path().filename().string();
       std::string image_path = entry.path().string();
-      TIFFImage<uint16_t> image;
+      TIFFImage image;
       try {
         image.Open(image_path);
       } catch (std::runtime_error& e) {
         std::cerr << "Ошибка при загрузке изображения " << image_name << ": "
                   << e.what() << std::endl;
         continue;
+      } catch (...) {
+        std::cerr << "Неизвестная ошибка при загрузке изображения "
+                  << image_name << std::endl;
+        continue;
       }
-      TIFFImage<uint16_t> prewitt_image = image.SetKernel(kKernelPrewitt);
+      TIFFImage prewitt_image = image.SetKernel(kKernelPrewitt);
       if (!fs::exists(prewitt_images_dir)) {
         fs::create_directory(prewitt_images_dir);
       }
@@ -41,7 +45,7 @@ int main() {
       if (!fs::exists(sobel_images_dir)) {
         fs::create_directory(sobel_images_dir);
       }
-      TIFFImage<uint16_t> sobel_image = image.SetKernel(kKernelSobel);
+      TIFFImage sobel_image = image.SetKernel(kKernelSobel);
       sobel_image.Save(sobel_images_dir / image_name);
     }
   }
