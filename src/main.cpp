@@ -23,6 +23,8 @@ int main() {
   fs::path prewitt_images_dir(project_source_dir / "images/prewitt");
   fs::path sobel_images_dir(project_source_dir / "images/sobel");
   fs::path gaussian_images_dir(project_source_dir / "images/gaussian");
+  fs::path kernel_path(project_source_dir / "kernel.txt");
+  fs::path arbitrary_kernel_dir(project_source_dir / "images/arbitrary_kernel");
 
   if (!fs::exists(original_images_dir)) {
     fs::create_directory(project_source_dir / "images/original");
@@ -31,20 +33,17 @@ int main() {
               << original_images_dir << std::endl;
     return 1;
   }
-  for (const auto& entry : fs::directory_iterator(gaussian_images_dir)) {
-    if (entry.is_regular_file()) {
-      fs::remove(entry);
-    }
+  if (fs::exists(gaussian_images_dir)) {
+    fs::remove_all(gaussian_images_dir);
   }
-  for (const auto& entry : fs::directory_iterator(prewitt_images_dir)) {
-    if (entry.is_regular_file()) {
-      fs::remove(entry);
-    }
+  if (fs::exists(prewitt_images_dir)) {
+    fs::remove_all(prewitt_images_dir);
   }
-  for (const auto& entry : fs::directory_iterator(sobel_images_dir)) {
-    if (entry.is_regular_file()) {
-      fs::remove(entry);
-    }
+  if (fs::exists(sobel_images_dir)) {
+    fs::remove_all(sobel_images_dir);
+  }
+  if (fs::exists(arbitrary_kernel_dir)) {
+    fs::remove_all(arbitrary_kernel_dir);
   }
 
   for (const auto& entry : fs::directory_iterator(original_images_dir)) {
@@ -78,6 +77,24 @@ int main() {
       }
       TIFFImage sobel_image = gaussian_image.SetKernel(kKernelSobel);
       sobel_image.Save(sobel_images_dir / image_name);
+      if (fs::exists(kernel_path)) {
+        Kernel<int> arbitrary_kernel;
+        try {
+          arbitrary_kernel.SetFromFile(kernel_path);
+          TIFFImage arbitrary_image =
+              gaussian_image.SetKernel(arbitrary_kernel);
+          if (!fs::exists(arbitrary_kernel_dir)) {
+            fs::create_directory(arbitrary_kernel_dir);
+          }
+          arbitrary_image.Save(arbitrary_kernel_dir / image_name);
+        } catch (KernelException& e) {
+          std::cerr << "Ошибка при загрузке ядра из файла " << kernel_path
+                    << ": " << e.what() << std::endl;
+        } catch (...) {
+          std::cerr << "Неизвестная ошибка при загрузке ядра из файла "
+                    << kernel_path << std::endl;
+        }
+      }
     }
   }
   std::cout << "Изображения обработаны" << std::endl;
