@@ -216,7 +216,8 @@ class Kernel {
 template <typename T>
 Kernel<T>::Kernel()
     : size_(0),
-      kernel_(nullptr) {
+      kernel_(nullptr),
+      rotatable_(false) {
 }
 
 template <typename T>
