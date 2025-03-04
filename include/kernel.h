@@ -195,6 +195,16 @@ class Kernel {
    */
   static Kernel GetGaussianKernel(const size_t size);
 
+  /**
+   * @brief Устанавливает ядро из файла.
+   *
+   * Читает размер ядра, флаг вращения и значения ядра из файла и устанавливает
+   * их.
+   *
+   * @param filename Имя файла, содержащего параметры ядра.
+   * @throws KernelException Если не удалось открыть файл или произошла ошибка
+   * чтения.
+   */
   void SetFromFile(const std::string& filename);
 };
 
@@ -433,5 +443,16 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
   file.close();
 }
 
+/**
+ * @brief Ядро оператора Собеля.
+ *
+ * Используется для выделения границ в изображении.
+ */
 const Kernel<int> kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}, true);
+
+/**
+ * @brief Ядро оператора Превитта.
+ *
+ * Используется для выделения границ в изображении.
+ */
 const Kernel<int> kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}}, true);
