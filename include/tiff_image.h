@@ -95,7 +95,7 @@ class TIFFImage {
    * @param name Имя файла.
    * @throws std::runtime_error Если не удается открыть файл.
    */
-  void Open(const std::string name) noexcept(false);
+  void Open(const std::string& name) noexcept(false);
 
   /**
    * @brief Закрывает файл с изображением.
@@ -118,7 +118,7 @@ class TIFFImage {
    * @param name Имя файла.
    * @throws std::runtime_error Если не удается создать файл.
    */
-  void Save(const std::string name);
+  void Save(const std::string& name);
 
   /**
    * @brief Очищает изображение.
