@@ -219,15 +219,15 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
   return *this;
 }
 
-TIFFImage TIFFImage::SetKernel(const Kernel& kernel, bool rotate) const {
+TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
   TIFFImage result(*this);
   if (rotate) {
-    Kernel kernel_y(kernel);
-    kernel_y.Rotate(KernelRotationDegrees::DEGREES_90);
+    Kernel<int> kernel_y(kernel);
+    kernel_y = kernel_y.Rotate(KernelRotationDegrees::DEGREES_90);
+    int radius = kernel.GetSize() / 2;
     for (size_t i = 0; i < height_; i++) {
       for (size_t j = 0; j < width_; j++) {
         int g_x = 0, g_y = 0;
-        int radius = kernel.GetSize() / 2;
         for (int k = -radius; k <= radius; k++) {
           for (int l = -radius; l <= radius; l++) {
             g_x += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
@@ -238,10 +238,10 @@ TIFFImage TIFFImage::SetKernel(const Kernel& kernel, bool rotate) const {
       }
     }
   } else {
+    int radius = kernel.GetSize() / 2;
     for (size_t i = 0; i < height_; i++) {
       for (size_t j = 0; j < width_; j++) {
         int g = 0;
-        int radius = kernel.GetSize() / 2;
         for (int k = -radius; k <= radius; k++) {
           for (int l = -radius; l <= radius; l++) {
             g += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
@@ -249,6 +249,24 @@ TIFFImage TIFFImage::SetKernel(const Kernel& kernel, bool rotate) const {
         }
         result.image_[i][j] = abs(g);
       }
+    }
+  }
+  return result;
+}
+
+TIFFImage TIFFImage::GaussianBlur(const size_t size) const {
+  Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size);
+  TIFFImage result(*this);
+  int radius = kernel.GetSize() / 2;
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      double sum = 0.0;
+      for (int k = -radius; k <= radius; k++) {
+        for (int l = -radius; l <= radius; l++) {
+          sum += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
+        }
+      }
+      result.image_[i][j] = static_cast<uint16_t>(sum);
     }
   }
   return result;
