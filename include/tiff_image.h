@@ -185,5 +185,20 @@ class TIFFImage {
    * @param rotate Флаг, указывающий, нужно ли поворачивать ядро.
    * @return Новое изображение с примененным ядром.
    */
-  TIFFImage SetKernel(const Kernel& kernel, bool rotate = true) const;
+  TIFFImage SetKernel(const Kernel<int>& kernel, bool rotate = true) const;
+
+  /**
+   * @brief Применяет фильтр Гаусса к изображению.
+   *
+   * Создает новое изображение, применяя фильтр Гаусса.
+   *
+   * Формула фильтра Гаусса:
+   * \f[
+   * G(x, y) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}}
+   * \f]
+   *
+   * @param size Размер фильтра (должен быть нечетным).
+   * @return Новое изображение с примененным фильтром Гаусса.
+   */
+  TIFFImage GaussianBlur(const size_t size = 3) const;
 };
