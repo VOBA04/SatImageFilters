@@ -109,6 +109,14 @@ class Kernel {
    */
   Kernel(const Kernel& other);
 
+  /**
+   * @brief Конструктор с параметром размера.
+   *
+   * Создает квадратное ядро размером size x size и инициализирует его нулями.
+   *
+   * @param size Размер ядра (должен быть нечетным).
+   * @throws KernelException Если передан четный размер.
+   */
   explicit Kernel(const size_t size);
 
   /**
