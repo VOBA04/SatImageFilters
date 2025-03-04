@@ -452,6 +452,15 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
  * @brief Ядро оператора Собеля.
  *
  * Используется для выделения границ в изображении.
+ *
+ * Матрица ядра:
+ * \f[
+ * \begin{bmatrix}
+ * -1 & 0 & 1 \\
+ * -2 & 0 & 2 \\
+ * -1 & 0 & 1
+ * \end{bmatrix}
+ * \f]
  */
 const Kernel<int> kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}, true);
 
@@ -459,5 +468,14 @@ const Kernel<int> kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}, true);
  * @brief Ядро оператора Превитта.
  *
  * Используется для выделения границ в изображении.
+ *
+ * Матрица ядра:
+ * \f[
+ * \begin{bmatrix}
+ * -1 & 0 & 1 \\
+ * -1 & 0 & 1 \\
+ * -1 & 0 & 1
+ * \end{bmatrix}
+ * \f]
  */
 const Kernel<int> kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}}, true);
