@@ -14,6 +14,7 @@
 #include <initializer_list>
 #include <string>
 #include <cmath>
+#include <fstream>
 
 /**
  * @brief Класс исключений, связанных с @ref Kernel "Kernel".
@@ -66,6 +67,7 @@ class Kernel {
  private:
   size_t size_ = 0;  ///< Размер ядра
   T** kernel_ = nullptr;  ///< Двумерный массив, представляющий ядро
+  bool rotatable_ = false;  ///< Флаг, указывающий, можно ли вращать ядро
 
  public:
   /**
@@ -85,7 +87,7 @@ class Kernel {
    * @param kernel Двумерный массив, содержащий значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  Kernel(const size_t size, const T** kernel);
+  Kernel(const size_t size, const T** kernel, bool rotatable);
 
   /**
    * @brief Конструктор с инициализатором списка.
@@ -98,7 +100,8 @@ class Kernel {
    * заданным.
    */
   Kernel(const size_t size,
-         const std::initializer_list<std::initializer_list<T>> kernel);
+         const std::initializer_list<std::initializer_list<T>> kernel,
+         bool rotatable);
 
   /**
    * @brief Конструктор копирования.
@@ -117,7 +120,7 @@ class Kernel {
    * @param size Размер ядра (должен быть нечетным).
    * @throws KernelException Если передан четный размер.
    */
-  explicit Kernel(const size_t size);
+  explicit Kernel(const size_t size, bool rotatable);
 
   /**
    * @brief Деструктор ядра.
@@ -135,7 +138,7 @@ class Kernel {
    * @param kernel Двумерный массив, содержащий новые значения ядра.
    * @throws KernelException Если передан четный размер.
    */
-  void Set(const size_t size, const T** kernel);
+  void Set(const size_t size, const T** kernel, bool rotatable);
 
   /**
    * @brief Оператор присваивания.
@@ -165,6 +168,8 @@ class Kernel {
    */
   size_t GetSize() const;
 
+  bool IsRotatable() const;
+
   /**
    * @brief Возвращает значение ядра в заданной позиции.
    *
@@ -189,6 +194,8 @@ class Kernel {
    * @throws KernelException Если передан четный размер.
    */
   static Kernel GetGaussianKernel(const size_t size);
+
+  void SetFromFile(const std::string& filename);
 };
 
 template <typename T>
@@ -198,8 +205,9 @@ Kernel<T>::Kernel()
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t size, const T** kernel)
-    : size_{size} {
+Kernel<T>::Kernel(const size_t size, const T** kernel, bool rotatable)
+    : size_{size},
+      rotatable_(rotatable) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
@@ -214,8 +222,10 @@ Kernel<T>::Kernel(const size_t size, const T** kernel)
 
 template <typename T>
 Kernel<T>::Kernel(const size_t size,
-                  const std::initializer_list<std::initializer_list<T>> kernel)
-    : size_{size} {
+                  const std::initializer_list<std::initializer_list<T>> kernel,
+                  bool rotatable)
+    : size_{size},
+      rotatable_(rotatable) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
@@ -253,8 +263,9 @@ Kernel<T>::Kernel(const Kernel& other)
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t size)
-    : size_{size} {
+Kernel<T>::Kernel(const size_t size, bool rotatable)
+    : size_{size},
+      rotatable_(rotatable) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
@@ -276,7 +287,7 @@ Kernel<T>::~Kernel() {
 }
 
 template <typename T>
-void Kernel<T>::Set(const size_t size, const T** kernel) {
+void Kernel<T>::Set(const size_t size, const T** kernel, bool rotatable) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
@@ -285,6 +296,7 @@ void Kernel<T>::Set(const size_t size, const T** kernel) {
   }
   delete[] kernel_;
   size_ = size;
+  rotatable_ = rotatable;
   kernel_ = new T*[size];
   for (size_t i = 0; i < size; i++) {
     kernel_[i] = new T[size];
@@ -352,6 +364,11 @@ size_t Kernel<T>::GetSize() const {
 }
 
 template <typename T>
+bool Kernel<T>::IsRotatable() const {
+  return rotatable_;
+}
+
+template <typename T>
 T Kernel<T>::Get(const size_t x, const size_t y) const {
   return kernel_[x][y];
 }
@@ -361,7 +378,7 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
-  Kernel<T> gaussian_kernel(size);
+  Kernel<T> gaussian_kernel(size, false);
   int half = size / 2;
   T sum = 0.0;
   T sigma = size / 6.0;
@@ -381,5 +398,40 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size) {
   return gaussian_kernel;
 }
 
-const Kernel<int> kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}});
-const Kernel<int> kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}});
+template <typename T>
+void Kernel<T>::SetFromFile(const std::string& filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) {
+    throw KernelException("Не удалось открыть файл");
+  }
+  size_t size;
+  bool rotate;
+  if (!(file >> size >> rotate)) {
+    throw KernelException(
+        "Ошибка чтения размера ядра или флага вращения из файла");
+  }
+  if (size % 2 == 0) {
+    throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
+  }
+  if (size_ != 0) {
+    for (size_t i = 0; i < size_; i++) {
+      delete[] kernel_[i];
+    }
+    delete[] kernel_;
+  }
+  size_ = size;
+  rotatable_ = rotate;
+  kernel_ = new T*[size];
+  for (size_t i = 0; i < size; i++) {
+    kernel_[i] = new T[size];
+    for (size_t j = 0; j < size; j++) {
+      if (!(file >> kernel_[i][j])) {
+        throw KernelException("Ошибка чтения значения ядра из файла");
+      }
+    }
+  }
+  file.close();
+}
+
+const Kernel<int> kKernelSobel(3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}, true);
+const Kernel<int> kKernelPrewitt(3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}}, true);
