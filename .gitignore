@@ -10,6 +10,7 @@ images
 doxygen
 test_images
 show_images.py
+kernel.txt
 
 # Local History for Visual Studio Code
 .history/
