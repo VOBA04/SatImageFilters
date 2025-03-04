@@ -166,6 +166,20 @@ class Kernel {
    */
   T Get(const size_t x, const size_t y) const;
 
+  /**
+   * @brief Возвращает ядро фильтра Гаусса.
+   *
+   * Создает и возвращает ядро фильтра Гаусса заданного размера.
+   *
+   * Формула для вычисления значений ядра:
+   * \f[
+   * G(x, y) = \frac{1}{2 \pi \sigma^2} e^{-\frac{x^2 + y^2}{2 \sigma^2}}
+   * \f]
+   *
+   * @param size Размер ядра (должен быть нечетным).
+   * @return Ядро фильтра Гаусса.
+   * @throws KernelException Если передан четный размер.
+   */
   static Kernel GetGaussianKernel(const size_t size);
 };
 
