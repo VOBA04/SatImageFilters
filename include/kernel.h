@@ -168,6 +168,11 @@ class Kernel {
    */
   size_t GetSize() const;
 
+  /**
+   * @brief Проверяет, можно ли вращать ядро.
+   *
+   * @return true, если ядро можно вращать; false в противном случае.
+   */
   bool IsRotatable() const;
 
   /**
