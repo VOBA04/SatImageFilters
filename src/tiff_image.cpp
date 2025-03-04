@@ -70,7 +70,7 @@ void TIFFImage::Open(const char* name) noexcept(false) {
   }
 }
 
-void TIFFImage::Open(const std::string name) noexcept(false) {
+void TIFFImage::Open(const std::string& name) noexcept(false) {
   Open(name.c_str());
 }
 
@@ -111,7 +111,7 @@ void TIFFImage::Save(const char* name) {
   tif_ = nullptr;
 }
 
-void TIFFImage::Save(const std::string name) {
+void TIFFImage::Save(const std::string& name) {
   Save(name.c_str());
 }
 
