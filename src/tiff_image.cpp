@@ -138,8 +138,8 @@ void TIFFImage::Clear() {
 
 uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   if ((width_ != 0u) && (height_ != 0u) && (image_ != nullptr)) {
-    if (x < 0 || x >= static_cast<int>(width_) || y < 0 ||
-        y >= static_cast<int>(height_)) {
+    if (x < 0 || x >= static_cast<int>(height_) || y < 0 ||
+        y >= static_cast<int>(width_)) {
       return 0;
     }
     return image_[x][y];
@@ -224,7 +224,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
   if (rotate) {
     Kernel<int> kernel_y(kernel);
     kernel_y = kernel_y.Rotate(KernelRotationDegrees::DEGREES_90);
-    int radius = kernel.GetSize() / 2;
+    int radius = kernel.GetHeight() / 2;
     for (size_t i = 0; i < height_; i++) {
       for (size_t j = 0; j < width_; j++) {
         int g_x = 0, g_y = 0;
@@ -238,7 +238,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
       }
     }
   } else {
-    int radius = kernel.GetSize() / 2;
+    int radius = kernel.GetHeight() / 2;
     for (size_t i = 0; i < height_; i++) {
       for (size_t j = 0; j < width_; j++) {
         int g = 0;
@@ -257,7 +257,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
 TIFFImage TIFFImage::GaussianBlur(const size_t size) const {
   Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size);
   TIFFImage result(*this);
-  int radius = kernel.GetSize() / 2;
+  int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       double sum = 0.0;
