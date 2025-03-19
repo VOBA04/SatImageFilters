@@ -271,3 +271,29 @@ TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
   }
   return result;
 }
+
+TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
+                                     const float sigma) const {
+  Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
+  TIFFImage result(*this);
+  int radius = kernel.GetHeight() / 2;
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      double sum = 0.0;
+      for (int k = -radius; k <= radius; k++) {
+        sum += kernel.Get(k + radius, 0) * Get(i + k, j);
+      }
+      result.image_[i][j] = static_cast<uint16_t>(sum);
+    }
+  }
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      double sum = 0.0;
+      for (int k = -radius; k <= radius; k++) {
+        sum += kernel.Get(k + radius, 0) * result.Get(i, j + k);
+      }
+      result.image_[i][j] = static_cast<uint16_t>(sum);
+    }
+  }
+  return result;
+}

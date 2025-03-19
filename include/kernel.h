@@ -210,7 +210,7 @@ class Kernel {
    *
    * Формула для вычисления значений ядра:
    * \f[
-   * G(x, y) = \frac{1}{2 \pi \sigma^2} e^{-\frac{x^2 + y^2}{2 \sigma^2}}
+   * G(x, y) = e^{-\frac{x^2 + y^2}{2 \sigma^2}}
    * \f]
    *
    * Если \f$\sigma\f$ не задан, он вычисляется как \f$\sigma =
@@ -222,6 +222,28 @@ class Kernel {
    * @throws KernelException Если передан четный размер.
    */
   static Kernel GetGaussianKernel(const size_t size, float sigma = 0.0);
+
+  /**
+   * @brief Возвращает одномерное ядро фильтра Гаусса.
+   *
+   * Создает и возвращает одномерное ядро фильтра Гаусса заданного размера.
+   * Это ядро может быть использовано для свертки по одной из осей
+   * (горизонтальной или вертикальной).
+   *
+   * Формула для вычисления значений ядра:
+   * \f[
+   * G(x) = e^{-\frac{x^2}{2 \sigma^2}}
+   * \f]
+   *
+   * Если \f$\sigma\f$ не задан, он вычисляется как \f$\sigma =
+   * \frac{size}{6}\f$.
+   *
+   * @param size Размер ядра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
+   * @return Одномерное ядро фильтра Гаусса.
+   * @throws KernelException Если передан четный размер.
+   */
+  static Kernel GetGaussianKernelSep(const size_t size, float sigma = 0.0);
 
   /**
    * @brief Устанавливает ядро из файла.
@@ -456,8 +478,9 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size, float sigma) {
   }
   for (int i = -half; i <= half; i++) {
     for (int j = -half; j <= half; j++) {
-      T g = exp(-(i * i + j * j) / (2 * sigma * sigma)) /
-            (2 * M_PI * sigma * sigma);
+      // T g = exp(-(i * i + j * j) / (2 * sigma * sigma)) /
+      //       (2 * M_PI * sigma * sigma);
+      T g = exp(-(i * i + j * j) / (2 * sigma * sigma));
       gaussian_kernel.kernel_[i + half][j + half] = g;
       sum += g;
     }
@@ -466,6 +489,29 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size, float sigma) {
     for (size_t j = 0; j < size; j++) {
       gaussian_kernel.kernel_[i][j] /= sum;
     }
+  }
+  return gaussian_kernel;
+}
+
+template <typename T>
+Kernel<T> Kernel<T>::GetGaussianKernelSep(const size_t size, float sigma) {
+  if ((size % 2) == 0u) {
+    throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
+  }
+  Kernel<T> gaussian_kernel(size, 1, true);
+  int half = size / 2;
+  T sum = 0.0;
+  if (sigma == 0) {
+    sigma = size / 6.0;
+    // T sigma = size * 0.15 + 0.35;
+  }
+  for (int i = -half; i <= half; i++) {
+    T g = exp(-i * i / (2 * sigma * sigma));
+    gaussian_kernel.kernel_[i + half][0] = g;
+    sum += g;
+  }
+  for (size_t i = 0; i < size; i++) {
+    gaussian_kernel.kernel_[i][0] /= sum;
   }
   return gaussian_kernel;
 }
