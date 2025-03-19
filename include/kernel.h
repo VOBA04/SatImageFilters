@@ -213,11 +213,15 @@ class Kernel {
    * G(x, y) = \frac{1}{2 \pi \sigma^2} e^{-\frac{x^2 + y^2}{2 \sigma^2}}
    * \f]
    *
+   * Если \f$\sigma\f$ не задан, он вычисляется как \f$\sigma =
+   * \frac{size}{6}\f$.
+   *
    * @param size Размер ядра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
    * @return Ядро фильтра Гаусса.
    * @throws KernelException Если передан четный размер.
    */
-  static Kernel GetGaussianKernel(const size_t size);
+  static Kernel GetGaussianKernel(const size_t size, float sigma = 0.0);
 
   /**
    * @brief Устанавливает ядро из файла.
@@ -439,14 +443,17 @@ T Kernel<T>::Get(const size_t x, const size_t y) const {
 }
 
 template <typename T>
-Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size) {
+Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size, float sigma) {
   if ((size % 2) == 0u) {
     throw KernelException("Неверный размер ядра. Размер должен быть нечетным");
   }
   Kernel<T> gaussian_kernel(size, size, false);
   int half = size / 2;
   T sum = 0.0;
-  T sigma = size / 6.0;
+  if (sigma == 0) {
+    sigma = size / 6.0;
+    // T sigma = size * 0.15 + 0.35;
+  }
   for (int i = -half; i <= half; i++) {
     for (int j = -half; j <= half; j++) {
       T g = exp(-(i * i + j * j) / (2 * sigma * sigma)) /

@@ -254,8 +254,8 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
   return result;
 }
 
-TIFFImage TIFFImage::GaussianBlur(const size_t size) const {
-  Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size);
+TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
+  Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size, sigma);
   TIFFImage result(*this);
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {

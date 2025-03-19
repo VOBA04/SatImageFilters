@@ -182,7 +182,8 @@ class TIFFImage {
    * Создает новое изображение, применяя ядро свертки.
    *
    * @param kernel Ядро свертки.
-   * @param rotate Флаг, указывающий, нужно ли поворачивать ядро.
+   * @param rotate Флаг, указывающий, нужно ли поворачивать ядро (по умолчанию
+   * true).
    * @return Новое изображение с примененным ядром.
    */
   TIFFImage SetKernel(const Kernel<int>& kernel, bool rotate = true) const;
@@ -197,8 +198,12 @@ class TIFFImage {
    * G(x, y) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}}
    * \f]
    *
+   * Если \f$\sigma\f$ не задан, он вычисляется как \f$\sigma =
+   * \frac{size}{6}\f$.
+   *
    * @param size Размер фильтра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным фильтром Гаусса.
    */
-  TIFFImage GaussianBlur(const size_t size = 3) const;
+  TIFFImage GaussianBlur(const size_t size = 3, const float sigma = 0.0) const;
 };
