@@ -1,4 +1,5 @@
 #include "tiff_image.h"
+#include <cstddef>
 #include <stdexcept>
 
 void TIFFImage::SwapBytes(uint16_t* array) {
@@ -138,20 +139,28 @@ void TIFFImage::Clear() {
 
 uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   if ((width_ != 0u) && (height_ != 0u) && (image_ != nullptr)) {
-    if (x < 0 || x >= static_cast<int>(height_) || y < 0 ||
-        y >= static_cast<int>(width_)) {
+    if (x < 0 || x >= static_cast<int>(width_) || y < 0 ||
+        y >= static_cast<int>(height_)) {
       return 0;
     }
-    return image_[x][y];
+    return image_[y][x];
   } else {
     throw std::runtime_error("Изображение не загружено");
   }
 }
 
+size_t TIFFImage::GetWidth() const {
+  return width_;
+}
+
+size_t TIFFImage::GetHeight() const {
+  return height_;
+}
+
 void TIFFImage::Set(const size_t x, const size_t y,
                     const uint16_t value) noexcept(false) {
   if ((width_ != 0u) && (height_ != 0u) && (image_ != nullptr)) {
-    if (x < width_ || x >= width_ || y < height_ || y >= height_) {
+    if (x >= width_ || y >= height_) {
       throw std::runtime_error("Выход за границы изображения");
     }
     image_[y][x] = value;
@@ -230,8 +239,8 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
         int g_x = 0, g_y = 0;
         for (int k = -radius; k <= radius; k++) {
           for (int l = -radius; l <= radius; l++) {
-            g_x += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
-            g_y += kernel_y.Get(k + radius, l + radius) * Get(i + k, j + l);
+            g_x += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
+            g_y += kernel_y.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
         result.image_[i][j] = abs(g_x) + abs(g_y);
@@ -244,7 +253,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
         int g = 0;
         for (int k = -radius; k <= radius; k++) {
           for (int l = -radius; l <= radius; l++) {
-            g += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
+            g += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
         result.image_[i][j] = abs(g);
@@ -263,7 +272,7 @@ TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
       double sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
         for (int l = -radius; l <= radius; l++) {
-          sum += kernel.Get(k + radius, l + radius) * Get(i + k, j + l);
+          sum += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
         }
       }
       result.image_[i][j] = static_cast<uint16_t>(sum);

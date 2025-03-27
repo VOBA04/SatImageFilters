@@ -15,6 +15,7 @@
 #include <string>
 #include <cmath>
 #include <fstream>
+#include "device_types.h"  // IWYU pragma: keep
 
 /**
  * @brief Класс исключений, связанных с @ref Kernel "Kernel".
@@ -161,6 +162,16 @@ class Kernel {
    * @return Ссылка на текущий объект.
    */
   Kernel& operator=(const Kernel& other);
+
+  /**
+   * @brief Оператор сравнения.
+   *
+   * Сравнивает два объекта Kernel на равенство.
+   *
+   * @param other Объект Kernel для сравнения.
+   * @return true, если объекты равны; false в противном случае.
+   */
+  bool operator==(const Kernel& other) const;
 
   /**
    * @brief Поворачивает ядро на заданный угол.
@@ -401,8 +412,27 @@ Kernel<T>& Kernel<T>::operator=(const Kernel& other) {
 }
 
 template <typename T>
+bool Kernel<T>::operator==(const Kernel& other) const {
+  if (height_ != other.height_ || width_ != other.width_) {
+    return false;
+  }
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      if (kernel_[i][j] != other.kernel_[i][j]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
 Kernel<T> Kernel<T>::Rotate(const KernelRotationDegrees degrees) const {
-  Kernel rotated(height_, width_, nullptr, rotatable_);
+  Kernel rotated(height_, width_, rotatable_);
+  for (size_t i = 0; i < height_; i++) {
+    delete[] rotated.kernel_[i];
+  }
+  delete[] rotated.kernel_;
   switch (degrees) {
     case KernelRotationDegrees::DEGREES_90: {
       rotated.height_ = width_;
@@ -461,7 +491,7 @@ bool Kernel<T>::IsRotatable() const {
 
 template <typename T>
 T Kernel<T>::Get(const size_t x, const size_t y) const {
-  return kernel_[x][y];
+  return kernel_[y][x];
 }
 
 template <typename T>
@@ -570,6 +600,10 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
 const Kernel<int> kKernelSobel(3, 3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}},
                                true);
 
+///\cond
+extern __constant__ int d_kernel_sobel[9];
+///\endcond
+
 /**
  * @brief Ядро оператора Превитта.
  *
@@ -586,3 +620,7 @@ const Kernel<int> kKernelSobel(3, 3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}},
  */
 const Kernel<int> kKernelPrewitt(3, 3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}},
                                  true);
+
+///\cond
+extern __constant__ int d_kernel_prewitt[9];
+///\endcond

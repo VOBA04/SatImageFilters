@@ -8,12 +8,14 @@
  */
 
 #pragma once
+#include "device_types.h"  // IWYU pragma: keep
 #include "kernel.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <tiff.h>
 #include <tiffio.h>
+#include <cuda_runtime.h>
 
 /**
  * @brief Класс для работы с TIFF изображением.
@@ -138,6 +140,20 @@ class TIFFImage {
   uint16_t Get(const int x, const int y) const noexcept(false);
 
   /**
+   * @brief Возвращает ширину изображения.
+   *
+   * @return Ширина изображения.
+   */
+  size_t GetWidth() const;
+
+  /**
+   * @brief Возвращает высоту изображения.
+   *
+   * @return Высота изображения.
+   */
+  size_t GetHeight() const;
+
+  /**
    * @brief Устанавливает значение пикселя.
    *
    * @param x Координата x.
@@ -228,4 +244,66 @@ class TIFFImage {
    */
   TIFFImage GaussianBlurSep(const size_t size = 3,
                             const float sigma = 0.0) const;
+
+  /**
+   * @brief Применяет ядро к изображению с использованием CUDA.
+   *
+   * Создает новое изображение, применяя ядро свертки с использованием CUDA.
+   *
+   * @param kernel Ядро свертки.
+   * @param rotate Флаг, указывающий, нужно ли поворачивать ядро (по умолчанию
+   * true).
+   * @return Новое изображение с примененным ядром.
+   */
+  TIFFImage SetKernelCuda(const Kernel<int>& kernel,
+                          const bool rotate = true) const;
+
+  /**
+   * @brief Применяет фильтр Гаусса к изображению с использованием CUDA.
+   *
+   * Создает новое изображение, применяя фильтр Гаусса с использованием CUDA.
+   *
+   * @param size Размер фильтра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
+   * @return Новое изображение с примененным фильтром Гаусса.
+   */
+  TIFFImage GaussianBlurCuda(const size_t size = 3,
+                             const float sigma = 0.0) const;
 };
+
+/**
+ * @brief CUDA ядро для применения свертки с заданным ядром.
+ *
+ * @param src Указатель на исходное изображение.
+ * @param dst Указатель на результирующее изображение.
+ * @param height Высота изображения.
+ * @param width Ширина изображения.
+ * @param kernel Указатель на ядро свертки.
+ * @param ksize Размер ядра свертки.
+ * @param rotate Флаг, указывающий, нужно ли поворачивать ядро.
+ */
+__global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
+                              size_t width, int* kernel, size_t ksize,
+                              bool rotate = true);
+
+/**
+ * @brief CUDA ядро для применения фильтра Собеля.
+ *
+ * @param src Указатель на исходное изображение.
+ * @param dst Указатель на результирующее изображение.
+ * @param height Высота изображения.
+ * @param width Ширина изображения.
+ */
+__global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
+                                   size_t width);
+
+/**
+ * @brief CUDA ядро для применения фильтра Прюитта.
+ *
+ * @param src Указатель на исходное изображение.
+ * @param dst Указатель на результирующее изображение.
+ * @param height Высота изображения.
+ * @param width Ширина изображения.
+ */
+__global__ void CudaSetPrewittKernel(uint16_t* src, uint16_t* dst,
+                                     size_t height, size_t width);
