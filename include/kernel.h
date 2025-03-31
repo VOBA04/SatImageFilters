@@ -16,7 +16,6 @@
 #include <string>
 #include <cmath>
 #include <fstream>
-#include "device_types.h"  // IWYU pragma: keep
 
 /**
  * @brief Класс исключений, связанных с @ref Kernel "Kernel".
@@ -640,10 +639,6 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
 const Kernel<int> kKernelSobel(3, 3, {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}},
                                true);
 
-///\cond
-extern __constant__ int d_kernel_sobel[9];
-///\endcond
-
 /**
  * @brief Ядро оператора Превитта.
  *
@@ -660,7 +655,3 @@ extern __constant__ int d_kernel_sobel[9];
  */
 const Kernel<int> kKernelPrewitt(3, 3, {{-1, 0, 1}, {-1, 0, 1}, {-1, 0, 1}},
                                  true);
-
-///\cond
-extern __constant__ int d_kernel_prewitt[9];
-///\endcond
