@@ -1,5 +1,6 @@
 #include "tiff_image.h"
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 
 void TIFFImage::SwapBytes(uint16_t* array) {
@@ -285,21 +286,22 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
                                      const float sigma) const {
   Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
   TIFFImage result(*this);
+  TIFFImage temp(*this);
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       double sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
-        sum += kernel.Get(k + radius, 0) * Get(i + k, j);
+        sum += kernel.Get(k + radius, 0) * Get(j, i + k);
       }
-      result.image_[i][j] = static_cast<uint16_t>(sum);
+      temp.image_[i][j] = static_cast<uint16_t>(sum);
     }
   }
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       double sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
-        sum += kernel.Get(k + radius, 0) * result.Get(i, j + k);
+        sum += kernel.Get(k + radius, 0) * temp.Get(j + k, i);
       }
       result.image_[i][j] = static_cast<uint16_t>(sum);
     }
