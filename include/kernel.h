@@ -349,7 +349,7 @@ Kernel<T>::Kernel(const size_t height, const size_t width, const T* kernel,
     throw KernelException("Передан нулевой указатель на ядро");
   }
   kernel_ = new T[height * width];
-  memcpy(kernel_, kernel, height * width * sizeof(T));
+  std::memcpy(kernel_, kernel, height * width * sizeof(T));
 }
 
 template <typename T>
@@ -389,7 +389,7 @@ Kernel<T>::Kernel(const Kernel& other)
       width_(other.width_),
       rotatable_(other.rotatable_) {
   kernel_ = new T[height_ * width_];
-  memcpy(kernel_, other.kernel_, height_ * width_ * sizeof(T));
+  std::memcpy(kernel_, other.kernel_, height_ * width_ * sizeof(T));
 }
 
 template <typename T>
@@ -449,7 +449,7 @@ void Kernel<T>::Set(const size_t height, const size_t width, const T* kernel,
   width_ = width;
   rotatable_ = rotatable;
   kernel_ = new T[height * width];
-  memcpy(kernel_, kernel, height * width * sizeof(T));
+  std::memcpy(kernel_, kernel, height * width * sizeof(T));
 }
 
 template <typename T>
@@ -462,7 +462,7 @@ Kernel<T>& Kernel<T>::operator=(const Kernel& other) {
   width_ = other.width_;
   rotatable_ = other.rotatable_;
   kernel_ = new T[height_ * width_];
-  memcpy(kernel_, other.kernel_, height_ * width_ * sizeof(T));
+  std::memcpy(kernel_, other.kernel_, height_ * width_ * sizeof(T));
   return *this;
 }
 
