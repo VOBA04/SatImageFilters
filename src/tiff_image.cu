@@ -107,16 +107,11 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
 
 TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
                                    const bool rotate) const {
-  uint16_t* h_src = new uint16_t[width_ * height_];
+  uint16_t* h_src = image_;
   uint16_t* d_src;
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      h_src[i * width_ + j] = Get(j, i);
-    }
-  }
   checkCudaErrors(cudaMalloc(&d_src, image_size));
   checkCudaErrors(cudaMemcpy(d_src, h_src, image_size, cudaMemcpyHostToDevice));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
@@ -149,29 +144,19 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaFree(d_src));
   checkCudaErrors(cudaFree(d_dst));
-  delete[] h_src;
   TIFFImage result(*this);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      result.Set(j, i, h_dst[i * width_ + j]);
-    }
-  }
+  std::memcpy(result.image_, h_dst, image_size);
   delete[] h_dst;
   return result;
 }
 
 TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
                                       const float sigma) const {
-  uint16_t* h_src = new uint16_t[width_ * height_];
+  uint16_t* h_src = image_;
   uint16_t* d_src;
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      h_src[i * width_ + j] = Get(j, i);
-    }
-  }
   checkCudaErrors(cudaMalloc(&d_src, image_size));
   checkCudaErrors(cudaMemcpy(d_src, h_src, image_size, cudaMemcpyHostToDevice));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
@@ -199,13 +184,8 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
   checkCudaErrors(cudaFree(d_src));
   checkCudaErrors(cudaFree(d_dst));
   checkCudaErrors(cudaFree(d_kernel));
-  delete[] h_src;
   TIFFImage result(*this);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      result.Set(j, i, h_dst[i * width_ + j]);
-    }
-  }
+  std::memcpy(result.image_, h_dst, image_size);
   delete[] h_dst;
   return result;
 }

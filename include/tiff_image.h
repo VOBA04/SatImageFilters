@@ -29,8 +29,8 @@ class TIFFImage {
   bool photo_metric_enabled_ = true,
        resolution_unit_enabled_ = true;  ///< Флаги включения параметров.
   float resolution_x_, resolution_y_;  ///< Разрешение по осям X и Y.
-  uint16_t** image_ =
-      nullptr;  ///< Двумерный массив, представляющий изображение.
+  uint16_t* image_ =
+      nullptr;  ///< Одномерный массив, представляющий изображение.
 
   /**
    * @brief Меняет порядок байтов в массиве.

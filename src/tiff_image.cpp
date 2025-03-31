@@ -1,6 +1,7 @@
 #include "tiff_image.h"
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 
 void TIFFImage::SwapBytes(uint16_t* array) {
@@ -25,21 +26,12 @@ TIFFImage::TIFFImage(const std::string name) noexcept(false) {
 
 TIFFImage::TIFFImage(const TIFFImage& other) {
   CopyFields(other);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      image_[i][j] = other.image_[i][j];
-    }
-  }
+  std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
 }
 
 TIFFImage::~TIFFImage() {
   Close();
-  if (image_ != nullptr) {
-    for (size_t i = 0; i < height_; i++) {
-      delete[] image_[i];
-    }
-    delete[] image_;
-  }
+  delete[] image_;
 }
 
 void TIFFImage::Open(const char* name) noexcept(false) {
@@ -64,11 +56,18 @@ void TIFFImage::Open(const char* name) noexcept(false) {
   if (TIFFGetField(tif_, TIFFTAG_YRESOLUTION, &resolution_y_) == 0) {
     resolution_y_ = -1;
   }
-  image_ = new uint16_t*[height_];
+  if (bits_per_sample_ != 16) {
+    throw std::runtime_error("Поддерживаются только 16-битные изображения");
+  }
+  if (samples_per_pixel_ != 1) {
+    throw std::runtime_error("Поддерживаются только одноканальные изображения");
+  }
+  if (config_ != PLANARCONFIG_CONTIG) {
+    throw std::runtime_error("Поддерживаются только непрерывные плоскости");
+  }
+  image_ = new uint16_t[width_ * height_];
   for (size_t i = 0; i < height_; i++) {
-    image_[i] = new uint16_t[width_];
-    TIFFReadScanline(tif_, image_[i], i);
-    // SwapBytes(image_[i]);
+    TIFFReadScanline(tif_, &image_[i * width_], i);
   }
 }
 
@@ -106,8 +105,7 @@ void TIFFImage::Save(const char* name) {
     TIFFSetField(tif_, TIFFTAG_YRESOLUTION, resolution_y_);
   }
   for (size_t i = 0; i < height_; i++) {
-    // SwapBytes(image_[i]);
-    TIFFWriteScanline(tif_, image_[i], i);
+    TIFFWriteScanline(tif_, &image_[i * width_], i);
   }
   TIFFClose(tif_);
   tif_ = nullptr;
@@ -118,13 +116,8 @@ void TIFFImage::Save(const std::string& name) {
 }
 
 void TIFFImage::Clear() {
-  if (image_ != nullptr) {
-    for (size_t i = 0; i < height_; i++) {
-      delete[] image_[i];
-    }
-    delete[] image_;
-    image_ = nullptr;
-  }
+  delete[] image_;
+  image_ = nullptr;
   width_ = 0;
   height_ = 0;
   samples_per_pixel_ = 0;
@@ -144,7 +137,7 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
         y >= static_cast<int>(height_)) {
       return 0;
     }
-    return image_[y][x];
+    return image_[y * width_ + x];
   } else {
     throw std::runtime_error("Изображение не загружено");
   }
@@ -164,7 +157,7 @@ void TIFFImage::Set(const size_t x, const size_t y,
     if (x >= width_ || y >= height_) {
       throw std::runtime_error("Выход за границы изображения");
     }
-    image_[y][x] = value;
+    image_[y * width_ + x] = value;
   } else {
     throw std::runtime_error("Изображение не загружено");
   }
@@ -183,13 +176,7 @@ void TIFFImage::CopyFields(const TIFFImage& other) {
   resolution_unit_enabled_ = other.resolution_unit_enabled_;
   resolution_x_ = other.resolution_x_;
   resolution_y_ = other.resolution_y_;
-  image_ = new uint16_t*[height_];
-  for (size_t i = 0; i < height_; i++) {
-    image_[i] = new uint16_t[width_];
-    for (size_t j = 0; j < width_; j++) {
-      image_[i][j] = other.image_[i][j];
-    }
-  }
+  image_ = new uint16_t[width_ * height_];
 }
 
 bool TIFFImage::operator==(const TIFFImage& other) const {
@@ -207,7 +194,7 @@ bool TIFFImage::operator==(const TIFFImage& other) const {
 
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
-      if (image_[i][j] != other.image_[i][j]) {
+      if (image_[i * width_ + j] != other.image_[i * width_ + j]) {
         return false;
       }
     }
@@ -221,11 +208,7 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
     return *this;
   }
   CopyFields(other);
-  for (size_t i = 0; i < height_; i++) {
-    for (size_t j = 0; j < width_; j++) {
-      image_[i][j] = other.image_[i][j];
-    }
-  }
+  std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
   return *this;
 }
 
@@ -244,7 +227,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
             g_y += kernel_y.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
-        result.image_[i][j] = abs(g_x) + abs(g_y);
+        result.image_[i * width_ + j] = abs(g_x) + abs(g_y);
       }
     }
   } else {
@@ -257,7 +240,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
             g += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
-        result.image_[i][j] = abs(g);
+        result.image_[i * width_ + j] = abs(g);
       }
     }
   }
@@ -276,7 +259,7 @@ TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
           sum += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
         }
       }
-      result.image_[i][j] = static_cast<uint16_t>(sum);
+      result.image_[i * width_ + j] = static_cast<uint16_t>(sum);
     }
   }
   return result;
@@ -286,7 +269,7 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
                                      const float sigma) const {
   Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
   TIFFImage result(*this);
-  TIFFImage temp(*this);
+  uint16_t* temp = new uint16_t[width_ * height_];
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
@@ -294,17 +277,21 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
       for (int k = -radius; k <= radius; k++) {
         sum += kernel.Get(k + radius, 0) * Get(j, i + k);
       }
-      temp.image_[i][j] = static_cast<uint16_t>(sum);
+      temp[i * width_ + j] = static_cast<uint16_t>(sum);
     }
   }
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       double sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
-        sum += kernel.Get(k + radius, 0) * temp.Get(j + k, i);
+        if (((int)j + k) < 0 || (j + k) >= width_) {
+          continue;
+        }
+        sum += kernel.Get(k + radius, 0) * temp[i * width_ + j + k];
       }
-      result.image_[i][j] = static_cast<uint16_t>(sum);
+      result.image_[i * width_ + j] = static_cast<uint16_t>(sum);
     }
   }
+  delete[] temp;
   return result;
 }
