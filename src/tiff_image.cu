@@ -256,6 +256,17 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
   }
 }
 
+/**
+ * @brief Применяет горизонтальное размытие по Гауссу к входному изображению.
+ *
+ * @param src Указатель на исходное изображение на устройстве.
+ * @param dst Указатель на промежуточное изображение (результат горизонтального
+ * размытия).
+ * @param height Высота изображения.
+ * @param width Ширина изображения.
+ * @param kernel Указатель на горизонтальное ядро Гаусса на устройстве.
+ * @param ksize Размер ядра.
+ */
 __global__ void CudaGaussianBlurSepHorizontal(uint16_t* src, double* dst,
                                               size_t height, size_t width,
                                               double* kernel, size_t ksize) {
@@ -273,6 +284,18 @@ __global__ void CudaGaussianBlurSepHorizontal(uint16_t* src, double* dst,
   }
 }
 
+/**
+ * @brief Применяет вертикальное размытие по Гауссу к промежуточному
+ * изображению.
+ *
+ * @param src Указатель на промежуточное изображение (результат горизонтального
+ * размытия).
+ * @param dst Указатель на результирующее изображение на устройстве.
+ * @param height Высота изображения.
+ * @param width Ширина изображения.
+ * @param kernel Указатель на вертикальное ядро Гаусса на устройстве.
+ * @param ksize Размер ядра.
+ */
 __global__ void CudaGaussianBlurSepVertical(double* src, uint16_t* dst,
                                             size_t height, size_t width,
                                             double* kernel, size_t ksize) {
@@ -363,10 +386,10 @@ TIFFImage TIFFImage::SetKernelSobelSepCuda() const {
   checkCudaErrors(cudaMalloc(&d_result_x, temps_size));
   checkCudaErrors(cudaMalloc(&d_result_y, temps_size));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
-  dim3 threads(32, 32);  // 2D-блоки по 32x32
-  dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
-  // dim3 threads(1024);
-  // dim3 blocks((width_ + 1023) / 1024, height_);
+  // dim3 threads(32, 32);  // 2D-блоки по 32x32
+  // dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
+  dim3 threads(1024);
+  dim3 blocks((width_ + 1023) / 1024, height_);
   CudaSetSobelKernelSmooth<<<blocks, threads>>>(d_src, d_g_x, d_g_y, height_,
                                                 width_);
   checkCudaErrors(cudaDeviceSynchronize());
