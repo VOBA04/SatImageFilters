@@ -8,14 +8,12 @@
  */
 
 #pragma once
-#include "device_types.h"  // IWYU pragma: keep
 #include "kernel.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <tiff.h>
 #include <tiffio.h>
-#include <cuda_runtime.h>
 
 /**
  * @brief Класс для работы с TIFF изображением.
