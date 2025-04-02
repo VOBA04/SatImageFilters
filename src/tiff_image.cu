@@ -97,9 +97,8 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
  * @param height Высота изображения.
  * @param width Ширина изображения.
  */
-__global__ void CudaSetSobelKernelSmooth(uint16_t* src, uint16_t* g_x,
-                                         uint16_t* g_y, size_t height,
-                                         size_t width) {
+__global__ void CudaSetSobelKernelSmooth(uint16_t* src, int* g_x, int* g_y,
+                                         size_t height, size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
@@ -156,9 +155,8 @@ __global__ void CudaSetPrewittKernel(uint16_t* src, uint16_t* dst,
  * @param height Высота изображения.
  * @param width Ширина изображения.
  */
-__global__ void CudaSetPrewittKernelAverage(uint16_t* src, uint16_t* g_x,
-                                            uint16_t* g_y, size_t height,
-                                            size_t width) {
+__global__ void CudaSetPrewittKernelAverage(uint16_t* src, int* g_x, int* g_y,
+                                            size_t height, size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
@@ -188,9 +186,8 @@ __global__ void CudaSetPrewittKernelAverage(uint16_t* src, uint16_t* g_x,
  * @param height Высота изображения.
  * @param width Ширина изображения.
  */
-__global__ void CudaSepKernelDiff(uint16_t* g_x, uint16_t* g_y,
-                                  uint16_t* result_x, uint16_t* result_y,
-                                  size_t height, size_t width) {
+__global__ void CudaSepKernelDiff(int* g_x, int* g_y, int* result_x,
+                                  int* result_y, size_t height, size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
@@ -220,7 +217,7 @@ __global__ void CudaSepKernelDiff(uint16_t* g_x, uint16_t* g_y,
  * @param height Высота матриц.
  * @param width Ширина матриц.
  */
-__global__ void CudaAddAbsMtx(uint16_t* mtx1, uint16_t* mtx2, uint16_t* result,
+__global__ void CudaAddAbsMtx(int* mtx1, int* mtx2, uint16_t* result,
                               size_t height, size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
@@ -259,38 +256,34 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
   }
 }
 
-/**
- * @brief Применяет раздельное размытие по Гауссу к входному изображению.
- *
- * @param src Указатель на исходное изображение на устройстве.
- * @param dst Указатель на результирующее изображение на устройстве.
- * @param height Высота изображения.
- * @param width Ширина изображения.
- * @param kernel Указатель на ядро Гаусса на устройстве.
- * @param ksize Размер ядра.
- * @param horizontal_vertical Указывает, применять ли ядро горизонтально или
- * вертикально.
- */
-__global__ void CudaGaussianBlurSep(uint16_t* src, uint16_t* dst, size_t height,
-                                    size_t width, double* kernel, size_t ksize,
-                                    bool horizontal_vertical) {
+__global__ void CudaGaussianBlurSepHorizontal(uint16_t* src, double* dst,
+                                              size_t height, size_t width,
+                                              double* kernel, size_t ksize) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     double sum = 0;
-    if (horizontal_vertical) {
-      for (int k = 0; k < ksize; k++) {
-        int x = j + k - ksize / 2;
-        if (x >= 0 && x < width) {
-          sum += src[i * width + x] * kernel[k];
-        }
+    for (int k = 0; k < ksize; k++) {
+      int x = j + k - ksize / 2;
+      if (x >= 0 && x < width) {
+        sum += src[i * width + x] * kernel[k];
       }
-    } else {
-      for (int k = 0; k < ksize; k++) {
-        int y = i + k - ksize / 2;
-        if (y >= 0 && y < height) {
-          sum += src[y * width + j] * kernel[k];
-        }
+    }
+    dst[i * width + j] = sum;
+  }
+}
+
+__global__ void CudaGaussianBlurSepVertical(double* src, uint16_t* dst,
+                                            size_t height, size_t width,
+                                            double* kernel, size_t ksize) {
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < height && j < width) {
+    double sum = 0;
+    for (int k = 0; k < ksize; k++) {
+      int y = i + k - ksize / 2;
+      if (y >= 0 && y < height) {
+        sum += src[y * width + j] * kernel[k];
       }
     }
     dst[i * width + j] = static_cast<uint16_t>(sum);
@@ -350,24 +343,25 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
 TIFFImage TIFFImage::SetKernelSobelSepCuda() const {
   uint16_t* h_src = image_;
   uint16_t* d_src;
-  uint16_t* d_g_x;
-  uint16_t* d_g_y;
-  uint16_t* d_result_x;
-  uint16_t* d_result_y;
+  int* d_g_x;
+  int* d_g_y;
+  int* d_result_x;
+  int* d_result_y;
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
+  size_t temps_size = image_size * 2;
   size_t free_memory, total_memory;
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
-  if (free_memory < image_size * 6) {
+  if (free_memory < image_size * 2 + temps_size * 4) {
     throw std::runtime_error("Изображение слишком большое для GPU");
   }
   checkCudaErrors(cudaMalloc(&d_src, image_size));
   checkCudaErrors(cudaMemcpy(d_src, h_src, image_size, cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMalloc(&d_g_x, image_size));
-  checkCudaErrors(cudaMalloc(&d_g_y, image_size));
-  checkCudaErrors(cudaMalloc(&d_result_x, image_size));
-  checkCudaErrors(cudaMalloc(&d_result_y, image_size));
+  checkCudaErrors(cudaMalloc(&d_g_x, temps_size));
+  checkCudaErrors(cudaMalloc(&d_g_y, temps_size));
+  checkCudaErrors(cudaMalloc(&d_result_x, temps_size));
+  checkCudaErrors(cudaMalloc(&d_result_y, temps_size));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
   dim3 threads(32, 32);  // 2D-блоки по 32x32
   dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
@@ -398,24 +392,25 @@ TIFFImage TIFFImage::SetKernelSobelSepCuda() const {
 TIFFImage TIFFImage::SetKernelPrewittSepCuda() const {
   uint16_t* h_src = image_;
   uint16_t* d_src;
-  uint16_t* d_g_x;
-  uint16_t* d_g_y;
-  uint16_t* d_result_x;
-  uint16_t* d_result_y;
+  int* d_g_x;
+  int* d_g_y;
+  int* d_result_x;
+  int* d_result_y;
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
+  size_t temps_size = image_size * 2;
   size_t free_memory, total_memory;
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
-  if (free_memory < image_size * 6) {
+  if (free_memory < image_size * 2 + temps_size * 4) {
     throw std::runtime_error("Изображение слишком большое для GPU");
   }
   checkCudaErrors(cudaMalloc(&d_src, image_size));
   checkCudaErrors(cudaMemcpy(d_src, h_src, image_size, cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMalloc(&d_g_x, image_size));
-  checkCudaErrors(cudaMalloc(&d_g_y, image_size));
-  checkCudaErrors(cudaMalloc(&d_result_x, image_size));
-  checkCudaErrors(cudaMalloc(&d_result_y, image_size));
+  checkCudaErrors(cudaMalloc(&d_g_x, temps_size));
+  checkCudaErrors(cudaMalloc(&d_g_y, temps_size));
+  checkCudaErrors(cudaMalloc(&d_result_x, temps_size));
+  checkCudaErrors(cudaMalloc(&d_result_y, temps_size));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
   // dim3 threads(32, 32);  // 2D-блоки по 32x32
   // dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
@@ -492,18 +487,19 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size,
                                          const float sigma) const {
   uint16_t* h_src = image_;
   uint16_t* d_src;
-  uint16_t* d_temp;
+  double* d_temp;
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
+  size_t temp_size = width_ * height_ * sizeof(double);
   size_t free_memory, total_memory;
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
-  if (free_memory < image_size * 3) {
+  if (free_memory < image_size * 2 + temp_size) {
     throw std::runtime_error("Изображение слишком большое для GPU");
   }
   checkCudaErrors(cudaMalloc(&d_src, image_size));
   checkCudaErrors(cudaMemcpy(d_src, h_src, image_size, cudaMemcpyHostToDevice));
-  checkCudaErrors(cudaMalloc(&d_temp, image_size));
+  checkCudaErrors(cudaMalloc(&d_temp, temp_size));
   checkCudaErrors(cudaMalloc(&d_dst, image_size));
   Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
   double* h_kernel;
@@ -522,11 +518,11 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size,
   // dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
   dim3 threads(1024);
   dim3 blocks((width_ + 1023) / 1024, height_);
-  CudaGaussianBlurSep<<<blocks, threads>>>(d_src, d_temp, height_, width_,
-                                           d_kernel, size, true);
+  CudaGaussianBlurSepHorizontal<<<blocks, threads>>>(d_src, d_temp, height_,
+                                                     width_, d_kernel, size);
   checkCudaErrors(cudaDeviceSynchronize());
-  CudaGaussianBlurSep<<<blocks, threads>>>(d_temp, d_dst, height_, width_,
-                                           d_kernel, size, false);
+  CudaGaussianBlurSepVertical<<<blocks, threads>>>(d_temp, d_dst, height_,
+                                                   width_, d_kernel, size);
   checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   checkCudaErrors(cudaFree(d_src));
