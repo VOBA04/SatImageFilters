@@ -1,16 +1,29 @@
 #include "tiff_image.h"
+#include <tiff.h>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include "kernel.h"
 
-void TIFFImage::SwapBytes(uint16_t* array) {
-  if (sizeof(uint16_t) != 2) {
-    return;
+const Kernel<int> kKernelSobelX(1, 3, {{1, 2, 1}}, true);
+const Kernel<int> kKernelSobelY(3, 1, {{1}, {2}, {1}}, true);
+const Kernel<int> kKernelPrewittX(1, 3, {{1, 1, 1}}, true);
+const Kernel<int> kKernelPrewittY(3, 1, {{1}, {1}, {1}}, true);
+const Kernel<int> kKernelGradientX(1, 3, {{1, 0, -1}}, true);
+const Kernel<int> kKernelGradientY(3, 1, {{1}, {0}, {-1}}, true);
+
+uint16_t* TIFFImage::AddAbsMtx(const int* mtx1, const int* mtx2, size_t height,
+                               size_t width) {
+  uint16_t* result = new uint16_t[height * width];
+  for (size_t i = 0; i < height; i++) {
+    for (size_t j = 0; j < width; j++) {
+      int sum = abs(mtx1[i * width + j]) + abs(mtx2[i * width + j]);
+      result[i * width + j] = static_cast<uint16_t>(std::min(sum, 65535));
+    }
   }
-  for (size_t i = 0; i < width_; i++) {
-    array[i] = (array[i] >> 8) | (array[i] << 8);
-  }
+  return result;
 }
 
 TIFFImage::TIFFImage() {
@@ -247,6 +260,80 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
   return result;
 }
 
+TIFFImage TIFFImage::SetKernelSobelSep() const {
+  TIFFImage result(*this);
+  delete[] result.image_;
+  int* g_x = new int[width_ * height_]();
+  int* g_y = new int[width_ * height_]();
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      for (int k = -1; k <= 1; k++) {
+        g_x[i * width_ + j] += Get(j + k, i) * kKernelSobelY.Get(0, k + 1);
+        g_y[i * width_ + j] += Get(j, i + k) * kKernelSobelX.Get(k + 1, 0);
+      }
+    }
+  }
+  int* result_x = new int[width_ * height_]();
+  int* result_y = new int[width_ * height_]();
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      for (int k = -1; k <= 1; k++) {
+        if ((int)i + k >= 0 && i + k < height_) {
+          result_x[i * width_ + j] +=
+              g_x[(i + k) * width_ + j] * kKernelGradientX.Get(k + 1, 0);
+        }
+        if ((int)j + k >= 0 && j + k < width_) {
+          result_y[i * width_ + j] +=
+              g_y[i * width_ + j + k] * kKernelGradientY.Get(0, k + 1);
+        }
+      }
+    }
+  }
+  result.image_ = AddAbsMtx(result_x, result_y, height_, width_);
+  delete[] g_x;
+  delete[] g_y;
+  delete[] result_x;
+  delete[] result_y;
+  return result;
+}
+
+TIFFImage TIFFImage::SetKernelPrewittSep() const {
+  TIFFImage result(*this);
+  delete[] result.image_;
+  int* g_x = new int[width_ * height_]();
+  int* g_y = new int[width_ * height_]();
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      for (int k = -1; k <= 1; k++) {
+        g_x[i * width_ + j] += Get(j + k, i) * kKernelPrewittY.Get(0, k + 1);
+        g_y[i * width_ + j] += Get(j, i + k) * kKernelPrewittX.Get(k + 1, 0);
+      }
+    }
+  }
+  int* result_x = new int[width_ * height_]();
+  int* result_y = new int[width_ * height_]();
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      for (int k = -1; k <= 1; k++) {
+        if ((int)i + k >= 0 && i + k < height_) {
+          result_x[i * width_ + j] +=
+              g_x[(i + k) * width_ + j] * kKernelGradientX.Get(k + 1, 0);
+        }
+        if ((int)j + k >= 0 && j + k < width_) {
+          result_y[i * width_ + j] +=
+              g_y[i * width_ + j + k] * kKernelGradientY.Get(0, k + 1);
+        }
+      }
+    }
+  }
+  result.image_ = AddAbsMtx(result_x, result_y, height_, width_);
+  delete[] g_x;
+  delete[] g_y;
+  delete[] result_x;
+  delete[] result_y;
+  return result;
+}
+
 TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
   Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size, sigma);
   TIFFImage result(*this);
@@ -269,7 +356,7 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
                                      const float sigma) const {
   Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
   TIFFImage result(*this);
-  uint16_t* temp = new uint16_t[width_ * height_];
+  double* temp = new double[width_ * height_];
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
@@ -277,7 +364,7 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
       for (int k = -radius; k <= radius; k++) {
         sum += kernel.Get(k + radius, 0) * Get(j, i + k);
       }
-      temp[i * width_ + j] = static_cast<uint16_t>(sum);
+      temp[i * width_ + j] = sum;
     }
   }
   for (size_t i = 0; i < height_; i++) {

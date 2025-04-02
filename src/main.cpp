@@ -79,33 +79,18 @@ int main() {
                   << image_name << std::endl;
         continue;
       }
-      // TIFFImage gaussian_image = image.GaussianBlur(9, 2);
+      // TIFFImage gaussian_image = image.GaussianBlur(9, 5);
       // TIFFImage gaussian_image = image.GaussianBlurSep(9, 5);
-      TIFFImage gaussian_image = image.GaussianBlurCuda(9, 5);
+      // TIFFImage gaussian_image = image.GaussianBlurCuda(9, 5);
+      TIFFImage gaussian_image = image.GaussianBlurSepCuda(9, 5);
       if (!fs::exists(gaussian_images_dir)) {
         fs::create_directory(gaussian_images_dir);
       }
-      // auto start1 = std::chrono::high_resolution_clock::now();
-      // image.GaussianBlur(9, 5);
-      // auto end1 = std::chrono::high_resolution_clock::now();
-      // auto start2 = std::chrono::high_resolution_clock::now();
-      // image.GaussianBlurSep(9, 5);
-      // auto end2 = std::chrono::high_resolution_clock::now();
-      // std::cout << "GaussianBlur time: "
-      //           << std::chrono::duration_cast<std::chrono::milliseconds>(end1
-      //           -
-      //                                                                    start1)
-      //                  .count()
-      //           << std::endl;
-      // std::cout << "GaussianBlurSep time: "
-      //           << std::chrono::duration_cast<std::chrono::milliseconds>(end2
-      //           -
-      //                                                                    start2)
-      //                  .count()
-      //           << std::endl;
       gaussian_image.Save(gaussian_images_dir / image_name);
       // TIFFImage prewitt_image = gaussian_image.SetKernel(kKernelPrewitt);
-      TIFFImage prewitt_image = gaussian_image.SetKernelCuda(kKernelPrewitt);
+      // TIFFImage prewitt_image = gaussian_image.SetKernelCuda(kKernelPrewitt);
+      // TIFFImage prewitt_image = gaussian_image.SetKernelPrewittSep();
+      TIFFImage prewitt_image = gaussian_image.SetKernelPrewittSepCuda();
       if (!fs::exists(prewitt_images_dir)) {
         fs::create_directory(prewitt_images_dir);
       }
@@ -114,7 +99,9 @@ int main() {
         fs::create_directory(sobel_images_dir);
       }
       // TIFFImage sobel_image = gaussian_image.SetKernel(kKernelSobel);
-      TIFFImage sobel_image = gaussian_image.SetKernelCuda(kKernelSobel);
+      // TIFFImage sobel_image = gaussian_image.SetKernelCuda(kKernelSobel);
+      // TIFFImage sobel_image = gaussian_image.SetKernelSobelSep();
+      TIFFImage sobel_image = gaussian_image.SetKernelSobelSepCuda();
       sobel_image.Save(sobel_images_dir / image_name);
       if (fs::exists(kernel_path)) {
         Kernel<int> arbitrary_kernel;
@@ -159,9 +146,25 @@ int main() {
                        .count()
                 << " ms" << std::endl;
       start = std::chrono::high_resolution_clock::now();
+      image.GaussianBlurSep(9, 5);
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CPU (Sep): "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
       image.GaussianBlurCuda(9, 5);
       end = std::chrono::high_resolution_clock::now();
       std::cout << "CUDA: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
+      image.GaussianBlurSepCuda(9, 5);
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
@@ -176,9 +179,25 @@ int main() {
                        .count()
                 << " ms" << std::endl;
       start = std::chrono::high_resolution_clock::now();
+      image.SetKernelPrewittSep();
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CPU (Sep): "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
       image.SetKernelCuda(kKernelPrewitt);
       end = std::chrono::high_resolution_clock::now();
       std::cout << "CUDA: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
+      image.SetKernelPrewittSepCuda();
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
@@ -193,9 +212,25 @@ int main() {
                        .count()
                 << " ms" << std::endl;
       start = std::chrono::high_resolution_clock::now();
+      image.SetKernelSobelSep();
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CPU (Sep): "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
       image.SetKernelCuda(kKernelSobel);
       end = std::chrono::high_resolution_clock::now();
       std::cout << "CUDA: "
+                << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+                                                                         start)
+                       .count()
+                << " ms" << std::endl;
+      start = std::chrono::high_resolution_clock::now();
+      image.SetKernelSobelSepCuda();
+      end = std::chrono::high_resolution_clock::now();
+      std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
