@@ -248,6 +248,17 @@ class Kernel {
   T Get(const size_t x, const size_t y) const;
 
   /**
+   * @brief Копирует ядро в указанный буфер памяти.
+   *
+   * Выделяет новую память и копирует в неё содержимое ядра.
+   * Ответственность за освобождение памяти лежит на вызывающей стороне.
+   *
+   * @param dst Указатель на указатель, который будет установлен на новую
+   * область памяти.
+   */
+  void CopyKernelTo(T** dst) const;
+
+  /**
    * @brief Возвращает ядро фильтра Гаусса.
    *
    * Создает и возвращает ядро фильтра Гаусса заданного размера.
@@ -537,6 +548,12 @@ bool Kernel<T>::IsRotatable() const {
 template <typename T>
 T Kernel<T>::Get(const size_t x, const size_t y) const {
   return kernel_[y * width_ + x];
+}
+
+template <typename T>
+void Kernel<T>::CopyKernelTo(T** dst) const {
+  *dst = new T[height_ * width_];
+  std::memcpy(*dst, kernel_, height_ * width_ * sizeof(T));
 }
 
 template <typename T>
