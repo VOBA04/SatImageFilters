@@ -206,6 +206,8 @@ class Kernel {
    */
   bool operator==(const Kernel& other) const;
 
+  bool operator!=(const Kernel& other) const;
+
   /**
    * @brief Поворачивает ядро на заданный угол.
    *
@@ -487,6 +489,11 @@ bool Kernel<T>::operator==(const Kernel& other) const {
     }
   }
   return true;
+}
+
+template <typename T>
+bool Kernel<T>::operator!=(const Kernel& other) const {
+  return !(*this == other);
 }
 
 template <typename T>

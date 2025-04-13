@@ -14,6 +14,7 @@
 #include <string>
 #include <tiff.h>
 #include <tiffio.h>
+#include "image_operation.h"
 
 /**
  * @brief Класс для работы с TIFF изображением.
@@ -29,6 +30,18 @@ class TIFFImage {
   float resolution_x_, resolution_y_;  ///< Разрешение по осям X и Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
+  uint16_t* d_src_ = nullptr;
+  uint16_t* d_dst_ = nullptr;
+  int* d_kernel_ = nullptr;
+  float* d_gaussian_sep_temp_ = nullptr;
+  int* d_sep_g_x_ = nullptr;
+  int* d_sep_g_y_ = nullptr;
+  int* d_sep_result_x_ = nullptr;
+  int* d_sep_result_y_ = nullptr;
+  float* d_gaussian_kernel_ = nullptr;
+  bool d_mem_allocaded_ = false;
+  size_t gaussian_kernel_size_ = 0;
+  float gaussian_sigma_ = 0;
 
   /**
    * @brief Складывает абсолютные значения элементов двух матриц.
@@ -198,6 +211,12 @@ class TIFFImage {
    * @return Ссылка на текущий объект.
    */
   TIFFImage& operator=(const TIFFImage& other);
+
+  void ImageToDeviceMemory(ImageOperation operation = ImageOperation::None,
+                           size_t gaussian_kernel_size = 0,
+                           float gaussian_sigma = 0);
+
+  void FreeDeviceMemory();
 
   /**
    * @brief Применяет ядро к изображению.

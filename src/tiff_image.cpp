@@ -335,12 +335,12 @@ TIFFImage TIFFImage::SetKernelPrewittSep() const {
 }
 
 TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
-  Kernel<double> kernel = Kernel<double>::GetGaussianKernel(size, sigma);
+  Kernel<float> kernel = Kernel<float>::GetGaussianKernel(size, sigma);
   TIFFImage result(*this);
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
-      double sum = 0.0;
+      float sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
         for (int l = -radius; l <= radius; l++) {
           sum += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
@@ -354,13 +354,13 @@ TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
 
 TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
                                      const float sigma) const {
-  Kernel<double> kernel = Kernel<double>::GetGaussianKernelSep(size, sigma);
+  Kernel<float> kernel = Kernel<float>::GetGaussianKernelSep(size, sigma);
   TIFFImage result(*this);
-  double* temp = new double[width_ * height_];
+  float* temp = new float[width_ * height_];
   int radius = kernel.GetHeight() / 2;
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
-      double sum = 0.0;
+      float sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
         sum += kernel.Get(k + radius, 0) * Get(j, i + k);
       }
@@ -369,7 +369,7 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
   }
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
-      double sum = 0.0;
+      float sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
         if (((int)j + k) < 0 || (j + k) >= width_) {
           continue;

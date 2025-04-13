@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include "image_operation.h"
 #include "kernel.h"
 #include "tiff_image.h"
 #include <stdexcept>
@@ -153,17 +154,22 @@ int main() {
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(ImageOperation::GaussianBlur, 9, 5);
       start = std::chrono::high_resolution_clock::now();
       image.GaussianBlurCuda(9, 5);
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA: "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(
+          ImageOperation::GaussianBlur | ImageOperation::Separated, 9, 5);
       start = std::chrono::high_resolution_clock::now();
       image.GaussianBlurSepCuda(9, 5);
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
@@ -186,17 +192,22 @@ int main() {
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(ImageOperation::Prewitt);
       start = std::chrono::high_resolution_clock::now();
       image.SetKernelCuda(kKernelPrewitt);
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA: "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(ImageOperation::Prewitt |
+                                ImageOperation::Separated);
       start = std::chrono::high_resolution_clock::now();
       image.SetKernelPrewittSepCuda();
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
@@ -219,17 +230,22 @@ int main() {
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(ImageOperation::Sobel);
       start = std::chrono::high_resolution_clock::now();
       image.SetKernelCuda(kKernelSobel);
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA: "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
                        .count()
                 << " ms" << std::endl;
+      image.ImageToDeviceMemory(ImageOperation::Sobel |
+                                ImageOperation::Separated);
       start = std::chrono::high_resolution_clock::now();
       image.SetKernelSobelSepCuda();
       end = std::chrono::high_resolution_clock::now();
+      image.FreeDeviceMemory();
       std::cout << "CUDA (Sep): "
                 << std::chrono::duration_cast<std::chrono::milliseconds>(end -
                                                                          start)
