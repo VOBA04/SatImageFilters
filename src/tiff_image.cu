@@ -418,10 +418,6 @@ void TIFFImage::FreeDeviceMemory() {
     checkCudaErrors(cudaFree(d_dst_));
     d_dst_ = nullptr;
   }
-  if (d_kernel_ != nullptr) {
-    checkCudaErrors(cudaFree(d_kernel_));
-    d_kernel_ = nullptr;
-  }
   if (d_gaussian_sep_temp_ != nullptr) {
     checkCudaErrors(cudaFree(d_gaussian_sep_temp_));
     d_gaussian_sep_temp_ = nullptr;

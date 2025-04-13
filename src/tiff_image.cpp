@@ -92,6 +92,7 @@ void TIFFImage::Close() {
   if (tif_ != nullptr) {
     TIFFClose(tif_);
     tif_ = nullptr;
+    FreeDeviceMemory();
   }
 }
 
@@ -142,6 +143,7 @@ void TIFFImage::Clear() {
   resolution_unit_enabled_ = true;
   resolution_x_ = 0;
   resolution_y_ = 0;
+  FreeDeviceMemory();
 }
 
 uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
