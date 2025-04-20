@@ -39,6 +39,7 @@ TIFFImage::TIFFImage(const std::string name) noexcept(false) {
 
 TIFFImage::TIFFImage(const TIFFImage& other) {
   CopyFields(other);
+  CopyDeviceMemPointers(other);
   std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
 }
 
@@ -192,6 +193,20 @@ void TIFFImage::CopyFields(const TIFFImage& other) {
   resolution_x_ = other.resolution_x_;
   resolution_y_ = other.resolution_y_;
   image_ = new uint16_t[width_ * height_];
+}
+
+void TIFFImage::CopyDeviceMemPointers(const TIFFImage& other) {
+  d_src_ = other.d_src_;
+  d_dst_ = other.d_dst_;
+  d_gaussian_sep_temp_ = other.d_gaussian_sep_temp_;
+  d_sep_g_x_ = other.d_sep_g_x_;
+  d_sep_g_y_ = other.d_sep_g_y_;
+  d_sep_result_x_ = other.d_sep_result_x_;
+  d_sep_result_y_ = other.d_sep_result_y_;
+  d_gaussian_kernel_ = other.d_gaussian_kernel_;
+  d_mem_allocaded_ = other.d_mem_allocaded_;
+  gaussian_kernel_size_ = other.gaussian_kernel_size_;
+  gaussian_sigma_ = other.gaussian_sigma_;
 }
 
 bool TIFFImage::operator==(const TIFFImage& other) const {

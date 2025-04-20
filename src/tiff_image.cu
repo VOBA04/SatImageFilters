@@ -331,14 +331,18 @@ void TIFFImage::ImageToDeviceMemory(ImageOperation operation,
       (static_cast<uint8_t>(ImageOperation::Prewitt) & operation_num) != 0;
   bool gaussian_blur =
       (static_cast<uint8_t>(ImageOperation::GaussianBlur) & operation_num) != 0;
+  bool gaussian_blur_sep =
+      (static_cast<uint8_t>(ImageOperation::GaussianBlurSep) & operation_num) !=
+      0;
   bool separated =
       (static_cast<uint8_t>(ImageOperation::Separated) & operation_num) != 0;
   if (operation == ImageOperation::None) {
     throw std::runtime_error("Операция не задана");
   }
-  if ((sobel && prewitt) || (sobel && gaussian_blur) ||
-      (prewitt && gaussian_blur)) {
-    throw std::runtime_error("Операция задана неверно");
+  if (gaussian_blur && gaussian_blur_sep) {
+    throw std::runtime_error(
+        "Нельзя одновременно использовать размытие по "
+        "Гауссу и раздельное размытие по Гауссу");
   }
   if (gaussian_blur && ((gaussian_kernel_size % 2) == 0u)) {
     throw std::runtime_error("Ядро фильтр ядра Гаусса должен быть нечетным");
@@ -352,18 +356,18 @@ void TIFFImage::ImageToDeviceMemory(ImageOperation operation,
     } else if (!CheckFreeMem(image_size * 2)) {
       throw std::runtime_error("Изображение слишком большое");
     }
-  } else if (gaussian_blur) {
-    if (separated) {
-      if (!CheckFreeMem(image_size * 2 + height_ * width_ * sizeof(float) +
-                        gaussian_kernel_size * sizeof(float))) {
-        throw std::runtime_error(
-            "Изображение или ядро фильтра Гаусса слишком большие");
-      }
-    } else if (!CheckFreeMem(image_size + gaussian_kernel_size *
-                                              gaussian_kernel_size *
-                                              sizeof(float))) {
+  }
+  if (gaussian_blur) {
+    if (!CheckFreeMem(image_size + gaussian_kernel_size * gaussian_kernel_size *
+                                       sizeof(float))) {
       throw std::runtime_error(
           "Изображение или ядро фильтра Гаусса слишком большие");
+    }
+  } else if (gaussian_blur_sep) {
+    if (!CheckFreeMem(image_size * 2 + height_ * width_ * sizeof(float) +
+                      gaussian_kernel_size * sizeof(float))) {
+      throw std::runtime_error(
+          "Изображение или ядро разделенного фильтра Гаусса слишком большие");
     }
   }
   checkCudaErrors(cudaMalloc(&d_src_, image_size));
@@ -375,36 +379,37 @@ void TIFFImage::ImageToDeviceMemory(ImageOperation operation,
     checkCudaErrors(cudaMalloc(&d_sep_g_y_, image_size * 2));
     checkCudaErrors(cudaMalloc(&d_sep_result_x_, image_size * 2));
     checkCudaErrors(cudaMalloc(&d_sep_result_y_, image_size * 2));
-  } else if (gaussian_blur) {
+  }
+  if (gaussian_blur) {
     gaussian_kernel_size_ = gaussian_kernel_size;
     gaussian_sigma_ = gaussian_sigma;
-    if (separated) {
-      checkCudaErrors(
-          cudaMalloc(&d_gaussian_sep_temp_, height_ * width_ * sizeof(float)));
-      checkCudaErrors(cudaMalloc(&d_gaussian_kernel_,
-                                 gaussian_kernel_size * sizeof(float)));
-      Kernel<float> kernel = Kernel<float>::GetGaussianKernelSep(
-          gaussian_kernel_size, gaussian_sigma);
-      float* h_kernel;
-      kernel.CopyKernelTo(&h_kernel);
-      checkCudaErrors(cudaMemcpy(d_gaussian_kernel_, h_kernel,
-                                 gaussian_kernel_size * sizeof(float),
-                                 cudaMemcpyHostToDevice));
-      delete[] h_kernel;
-    } else {
-      checkCudaErrors(cudaMalloc(
-          &d_gaussian_kernel_,
-          gaussian_kernel_size * gaussian_kernel_size * sizeof(float)));
-      Kernel<float> kernel = Kernel<float>::GetGaussianKernel(
-          gaussian_kernel_size, gaussian_sigma);
-      float* h_kernel;
-      kernel.CopyKernelTo(&h_kernel);
-      checkCudaErrors(cudaMemcpy(
-          d_gaussian_kernel_, h_kernel,
-          gaussian_kernel_size * gaussian_kernel_size * sizeof(float),
-          cudaMemcpyHostToDevice));
-      delete[] h_kernel;
-    }
+    checkCudaErrors(cudaMalloc(
+        &d_gaussian_kernel_,
+        gaussian_kernel_size * gaussian_kernel_size * sizeof(float)));
+    Kernel<float> kernel =
+        Kernel<float>::GetGaussianKernel(gaussian_kernel_size, gaussian_sigma);
+    float* h_kernel;
+    kernel.CopyKernelTo(&h_kernel);
+    checkCudaErrors(
+        cudaMemcpy(d_gaussian_kernel_, h_kernel,
+                   gaussian_kernel_size * gaussian_kernel_size * sizeof(float),
+                   cudaMemcpyHostToDevice));
+    delete[] h_kernel;
+  } else if (gaussian_blur_sep) {
+    gaussian_kernel_size_ = gaussian_kernel_size;
+    gaussian_sigma_ = gaussian_sigma;
+    checkCudaErrors(
+        cudaMalloc(&d_gaussian_sep_temp_, height_ * width_ * sizeof(float)));
+    checkCudaErrors(
+        cudaMalloc(&d_gaussian_kernel_, gaussian_kernel_size * sizeof(float)));
+    Kernel<float> kernel = Kernel<float>::GetGaussianKernelSep(
+        gaussian_kernel_size, gaussian_sigma);
+    float* h_kernel;
+    kernel.CopyKernelTo(&h_kernel);
+    checkCudaErrors(cudaMemcpy(d_gaussian_kernel_, h_kernel,
+                               gaussian_kernel_size * sizeof(float),
+                               cudaMemcpyHostToDevice));
+    delete[] h_kernel;
   }
   d_mem_allocaded_ = true;
 }
