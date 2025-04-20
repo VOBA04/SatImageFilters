@@ -22,6 +22,16 @@ bool CheckFreeMem(size_t required_memory) {
   return free_memory > required_memory;
 }
 
+__device__ int Clamp(const int val, const int min, const int max) {
+  if (val < min) {
+    return min;
+  }
+  if (val > max) {
+    return max;
+  }
+  return val;
+}
+
 /**
  * @brief Применяет пользовательское ядро к входному изображению.
  *
@@ -45,10 +55,10 @@ __global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
         for (int l = 0; l < ksize; l++) {
           int x = j + l - ksize / 2;
           int y = i + k - ksize / 2;
-          if (x >= 0 && x < width && y >= 0 && y < height) {
-            g_x += src[y * width + x] * kernel[k * ksize + l];
-            g_y += src[y * width + x] * kernel[(ksize - 1 - l) * ksize + k];
-          }
+          x = Clamp(x, 0, width - 1);
+          y = Clamp(y, 0, height - 1);
+          g_x += src[y * width + x] * kernel[k * ksize + l];
+          g_y += src[y * width + x] * kernel[(ksize - 1 - l) * ksize + k];
         }
       }
       dst[i * width + j] = abs(g_x) + abs(g_y);
@@ -58,9 +68,9 @@ __global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
         for (int l = 0; l < ksize; l++) {
           int x = j + l - ksize / 2;
           int y = i + k - ksize / 2;
-          if (x >= 0 && x < width && y >= 0 && y < height) {
-            g += src[y * width + x] * kernel[k * ksize + l];
-          }
+          x = Clamp(x, 0, width - 1);
+          y = Clamp(y, 0, height - 1);
+          g += src[y * width + x] * kernel[k * ksize + l];
         }
       }
       dst[i * width + j] = g;
@@ -86,10 +96,10 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
       for (int l = 0; l < 3; l++) {
         int x = j + l - 1;
         int y = i + k - 1;
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-          g_x += src[y * width + x] * d_kernel_sobel[k * 3 + l];
-          g_y += src[y * width + x] * d_kernel_sobel[(3 - 1 - l) * 3 + k];
-        }
+        x = Clamp(x, 0, width - 1);
+        y = Clamp(y, 0, height - 1);
+        g_x += src[y * width + x] * d_kernel_sobel[k * 3 + l];
+        g_y += src[y * width + x] * d_kernel_sobel[(3 - 1 - l) * 3 + k];
       }
     }
     dst[i * width + j] = abs(g_x) + abs(g_y);
@@ -114,12 +124,10 @@ __global__ void CudaSetSobelKernelSmooth(uint16_t* src, int* g_x, int* g_y,
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
-      if (x >= 0 && x < width) {
-        sum_x += src[i * width + x] * d_kernel_sobel_sep[k];
-      }
-      if (y >= 0 && y < height) {
-        sum_y += src[y * width + j] * d_kernel_sobel_sep[k];
-      }
+      x = Clamp(x, 0, width - 1);
+      y = Clamp(y, 0, height - 1);
+      sum_x += src[i * width + x] * d_kernel_sobel_sep[k];
+      sum_y += src[y * width + j] * d_kernel_sobel_sep[k];
     }
     g_x[i * width + j] = sum_x;
     g_y[i * width + j] = sum_y;
@@ -144,10 +152,12 @@ __global__ void CudaSetPrewittKernel(uint16_t* src, uint16_t* dst,
       for (int l = 0; l < 3; l++) {
         int x = j + l - 1;
         int y = i + k - 1;
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-          g_x += src[y * width + x] * d_kernel_prewitt[k * 3 + l];
-          g_y += src[y * width + x] * d_kernel_prewitt[(3 - 1 - l) * 3 + k];
-        }
+        x = Clamp(x, 0, width - 1);
+        y = Clamp(y, 0, height - 1);
+        g_x += src[y * width + x] * d_kernel_prewitt[k * 3 + l];
+        g_y += src[y * width + x] * d_kernel_prewitt[(3 - 1 - l) * 3 + k];
+        // if (x >= 0 && x < width && y >= 0 && y < height) {
+        // }
       }
     }
     dst[i * width + j] = abs(g_x) + abs(g_y);
@@ -172,12 +182,10 @@ __global__ void CudaSetPrewittKernelAverage(uint16_t* src, int* g_x, int* g_y,
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
-      if (x >= 0 && x < width) {
-        sum_x += src[i * width + x] * d_kernel_prewitt_sep[k];
-      }
-      if (y >= 0 && y < height) {
-        sum_y += src[y * width + j] * d_kernel_prewitt_sep[k];
-      }
+      x = Clamp(x, 0, width - 1);
+      y = Clamp(y, 0, height - 1);
+      sum_x += src[i * width + x] * d_kernel_prewitt_sep[k];
+      sum_y += src[y * width + j] * d_kernel_prewitt_sep[k];
     }
     g_x[i * width + j] = sum_x;
     g_y[i * width + j] = sum_y;
@@ -204,12 +212,10 @@ __global__ void CudaSepKernelDiff(int* g_x, int* g_y, int* result_x,
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
-      if (x >= 0 && x < width) {
-        sum_y += g_y[i * width + x] * d_kernel_gradient[k];
-      }
-      if (y >= 0 && y < height) {
-        sum_x += g_x[y * width + j] * d_kernel_gradient[k];
-      }
+      x = Clamp(x, 0, width - 1);
+      y = Clamp(y, 0, height - 1);
+      sum_y += g_y[i * width + x] * d_kernel_gradient[k];
+      sum_x += g_x[y * width + j] * d_kernel_gradient[k];
     }
     result_x[i * width + j] = sum_x;
     result_y[i * width + j] = sum_y;
@@ -255,9 +261,9 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
       for (int l = 0; l < ksize; l++) {
         int x = j + l - ksize / 2;
         int y = i + k - ksize / 2;
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-          sum += src[y * width + x] * kernel[k * ksize + l];
-        }
+        x = Clamp(x, 0, width - 1);
+        y = Clamp(y, 0, height - 1);
+        sum += src[y * width + x] * kernel[k * ksize + l];
       }
     }
     dst[i * width + j] = static_cast<uint16_t>(sum);
@@ -284,9 +290,8 @@ __global__ void CudaGaussianBlurSepHorizontal(uint16_t* src, float* dst,
     float sum = 0;
     for (int k = 0; k < ksize; k++) {
       int x = j + k - ksize / 2;
-      if (x >= 0 && x < width) {
-        sum += src[i * width + x] * kernel[k];
-      }
+      x = Clamp(x, 0, width - 1);
+      sum += src[i * width + x] * kernel[k];
     }
     dst[i * width + j] = sum;
   }
@@ -313,9 +318,8 @@ __global__ void CudaGaussianBlurSepVertical(float* src, uint16_t* dst,
     float sum = 0;
     for (int k = 0; k < ksize; k++) {
       int y = i + k - ksize / 2;
-      if (y >= 0 && y < height) {
-        sum += src[y * width + j] * kernel[k];
-      }
+      y = Clamp(y, 0, height - 1);
+      sum += src[y * width + j] * kernel[k];
     }
     dst[i * width + j] = static_cast<uint16_t>(sum);
   }

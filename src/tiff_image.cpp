@@ -149,10 +149,12 @@ void TIFFImage::Clear() {
 
 uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   if ((width_ != 0u) && (height_ != 0u) && (image_ != nullptr)) {
-    if (x < 0 || x >= static_cast<int>(width_) || y < 0 ||
-        y >= static_cast<int>(height_)) {
-      return 0;
-    }
+    // if (x < 0 || x >= static_cast<int>(width_) || y < 0 ||
+    //     y >= static_cast<int>(height_)) {
+    //   return 0;
+    // }
+    return image_[std::clamp(y, 0, (int)height_ - 1) * width_ +
+                  std::clamp(x, 0, (int)width_ - 1)];
     return image_[y * width_ + x];
   } else {
     throw std::runtime_error("Изображение не загружено");
