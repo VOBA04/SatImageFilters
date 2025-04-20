@@ -344,7 +344,8 @@ void TIFFImage::ImageToDeviceMemory(ImageOperation operation,
         "Нельзя одновременно использовать размытие по "
         "Гауссу и раздельное размытие по Гауссу");
   }
-  if (gaussian_blur && ((gaussian_kernel_size % 2) == 0u)) {
+  if ((gaussian_blur || gaussian_blur_sep) &&
+      ((gaussian_kernel_size % 2) == 0u)) {
     throw std::runtime_error("Ядро фильтр ядра Гаусса должен быть нечетным");
   }
   size_t image_size = height_ * width_ * sizeof(uint16_t);
@@ -457,7 +458,7 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
   uint16_t* h_dst = new uint16_t[width_ * height_];
   uint16_t* d_dst;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
-  if (!d_mem_allocaded_ && kernel != kKernelSobel && kernel != kKernelPrewitt) {
+  if (!d_mem_allocaded_) {
     size_t free_memory, total_memory;
     checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
     if (free_memory < image_size * 2) {
