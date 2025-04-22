@@ -54,24 +54,29 @@ void ImageProcessor::run() {
     }
     TIFFImage result_image;
     if (task.operation == ImageOperation::GaussianBlur) {
+      image_.CopyImageToDevice();
       result_image = image_.GaussianBlurCuda(task.gaussian_kernel_size,
                                              task.gaussian_sigma);
     } else if (task.operation == ImageOperation::Sobel) {
+      image_.CopyImageToDevice();
       result_image = image_.SetKernelCuda(kKernelSobel);
     } else if (task.operation == ImageOperation::Prewitt) {
+      image_.CopyImageToDevice();
       result_image = image_.SetKernelCuda(kKernelPrewitt);
     } else if (task.operation ==
                (ImageOperation::GaussianBlur | ImageOperation::Sobel)) {
-      result_image =
-          image_
-              .GaussianBlurCuda(task.gaussian_kernel_size, task.gaussian_sigma)
-              .SetKernelCuda(kKernelSobel);
+      image_.CopyImageToDevice();
+      TIFFImage gaussian_blurred_image = image_.GaussianBlurCuda(
+          task.gaussian_kernel_size, task.gaussian_sigma);
+      gaussian_blurred_image.CopyImageToDevice();
+      result_image = gaussian_blurred_image.SetKernelCuda(kKernelSobel);
     } else if (task.operation ==
                (ImageOperation::GaussianBlur | ImageOperation::Prewitt)) {
-      result_image =
-          image_
-              .GaussianBlurCuda(task.gaussian_kernel_size, task.gaussian_sigma)
-              .SetKernelCuda(kKernelPrewitt);
+      image_.CopyImageToDevice();
+      TIFFImage gaussian_blurred_image = image_.GaussianBlurCuda(
+          task.gaussian_kernel_size, task.gaussian_sigma);
+      gaussian_blurred_image.CopyImageToDevice();
+      result_image = gaussian_blurred_image.SetKernelCuda(kKernelPrewitt);
     }
     emit ResultReady(result_image);
   }
