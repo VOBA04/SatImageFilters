@@ -213,6 +213,8 @@ class TIFFImage {
    */
   void CopyFields(const TIFFImage& other);
 
+  void CopyImageToDevice();
+
   void CopyDeviceMemPointers(const TIFFImage& other);
 
   /**

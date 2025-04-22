@@ -458,6 +458,15 @@ void TIFFImage::FreeDeviceMemory() {
   d_mem_allocaded_ = false;
 }
 
+void TIFFImage::CopyImageToDevice() {
+  if (!d_mem_allocaded_) {
+    throw std::runtime_error("Память на устройстве не выделена");
+  }
+  size_t image_size = height_ * width_ * sizeof(uint16_t);
+  checkCudaErrors(
+      cudaMemcpy(d_src_, image_, image_size, cudaMemcpyHostToDevice));
+}
+
 TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
                                    const bool rotate) const {
   uint16_t* h_src = image_;
@@ -506,7 +515,7 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
   }
   checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
-  if (!d_mem_allocaded_ && kernel != kKernelSobel && kernel != kKernelPrewitt) {
+  if (!d_mem_allocaded_) {
     checkCudaErrors(cudaFree(d_src));
     checkCudaErrors(cudaFree(d_dst));
   }
