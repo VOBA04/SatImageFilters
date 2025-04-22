@@ -108,26 +108,25 @@ int main() {
       // TIFFImage sobel_image = gaussian_image.SetKernelSobelSepCuda();
       TIFFImage sobel_image = gaussian_image.SetKernelCuda(kKernelSobel);
       sobel_image.Save(sobel_images_dir / image_name);
-      // if (fs::exists(kernel_path)) {
-      //   Kernel<int> arbitrary_kernel;
-      //   try {
-      //     arbitrary_kernel.SetFromFile(kernel_path);
-      //     // TIFFImage arbitrary_image =
-      //     //     gaussian_image.SetKernel(arbitrary_kernel);
-      //     TIFFImage arbitrary_image =
-      //         image.SetKernelCuda(arbitrary_kernel);
-      //     if (!fs::exists(arbitrary_kernel_dir)) {
-      //       fs::create_directory(arbitrary_kernel_dir);
-      //     }
-      //     arbitrary_image.Save(arbitrary_kernel_dir / image_name);
-      //   } catch (KernelException& e) {
-      //     std::cerr << "Ошибка при загрузке ядра из файла " << kernel_path
-      //               << ": " << e.what() << std::endl;
-      //   } catch (...) {
-      //     std::cerr << "Неизвестная ошибка при загрузке ядра из файла "
-      //               << kernel_path << std::endl;
-      //   }
-      // }
+      if (fs::exists(kernel_path)) {
+        Kernel<int> arbitrary_kernel;
+        try {
+          arbitrary_kernel.SetFromFile(kernel_path);
+          // TIFFImage arbitrary_image =
+          //     gaussian_image.SetKernel(arbitrary_kernel);
+          TIFFImage arbitrary_image = image.SetKernelCuda(arbitrary_kernel);
+          if (!fs::exists(arbitrary_kernel_dir)) {
+            fs::create_directory(arbitrary_kernel_dir);
+          }
+          arbitrary_image.Save(arbitrary_kernel_dir / image_name);
+        } catch (KernelException& e) {
+          std::cerr << "Ошибка при загрузке ядра из файла " << kernel_path
+                    << ": " << e.what() << std::endl;
+        } catch (...) {
+          std::cerr << "Неизвестная ошибка при загрузке ядра из файла "
+                    << kernel_path << std::endl;
+        }
+      }
     }
   }
   std::cout << "Изображения обработаны" << std::endl;
