@@ -25,9 +25,9 @@ static const ComboBoxItem kComboBoxItems[] = {
     {"Фильтр Гаусса", ImageOperation::GaussianBlur},
     {"Оператор Собеля", ImageOperation::Sobel},
     {"Оператор Превитта", ImageOperation::Prewitt},
-    {"Фильтр Гаусса + Операто Собеля",
+    {"Фильтр Гаусса + Оператор Собеля",
      ImageOperation::GaussianBlur | ImageOperation::Sobel},
-    {"Фильтр Гаусса + Операто Превитта",
+    {"Фильтр Гаусса + Оператор Превитта",
      ImageOperation::GaussianBlur | ImageOperation::Prewitt}};
 
 MainWindow::MainWindow(QWidget* parent)

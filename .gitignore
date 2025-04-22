@@ -36,6 +36,7 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 build_speedtest.sh
+max_pixel.py
 
 # Prerequisites
 *.d
