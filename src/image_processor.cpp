@@ -1,4 +1,6 @@
 #include "image_processor.h"
+#include <qdebug.h>
+#include <qlogging.h>
 #include "image_operation.h"
 #include "kernel.h"
 #include "tiff_image.h"

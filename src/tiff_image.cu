@@ -455,6 +455,7 @@ void TIFFImage::FreeDeviceMemory() {
     checkCudaErrors(cudaFree(d_gaussian_kernel_));
     d_gaussian_kernel_ = nullptr;
   }
+  checkCudaErrors(cudaDeviceSynchronize());
   d_mem_allocaded_ = false;
 }
 

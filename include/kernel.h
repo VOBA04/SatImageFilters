@@ -52,9 +52,9 @@ class KernelException : public std::exception {
  * Используется в методе @ref Kernel::Rotate для указания угла вращения.
  */
 enum class KernelRotationDegrees {
-  DEGREES_90,  ///< Поворот на 90 градусов по часовой стрелке
+  DEGREES_90,   ///< Поворот на 90 градусов по часовой стрелке
   DEGREES_180,  ///< Поворот на 180 градусов
-  DEGREES_270  ///< Поворот на 270 градусов по часовой стрелке
+  DEGREES_270   ///< Поворот на 270 градусов по часовой стрелке
 };
 
 /**
@@ -67,9 +67,9 @@ enum class KernelRotationDegrees {
 template <typename T>
 class Kernel {
  private:
-  size_t height_ = 0;  ///< Высота ядра
-  size_t width_ = 0;   ///< Ширина ядра
-  T* kernel_ = nullptr;  ///< Одномерный массив, представляющий ядро
+  size_t height_ = 0;       ///< Высота ядра
+  size_t width_ = 0;        ///< Ширина ядра
+  T* kernel_ = nullptr;     ///< Одномерный массив, представляющий ядро
   bool rotatable_ = false;  ///< Флаг, указывающий, можно ли вращать ядро
 
  public:
@@ -430,7 +430,9 @@ Kernel<T>::Kernel(const size_t height, const size_t width, bool rotatable)
 
 template <typename T>
 Kernel<T>::~Kernel() {
-  delete[] kernel_;
+  if (kernel_ != nullptr) {
+    delete[] kernel_;
+  }
 }
 
 template <typename T>

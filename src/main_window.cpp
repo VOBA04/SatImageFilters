@@ -76,6 +76,7 @@ MainWindow::~MainWindow() {
     video_capture_.release();
   }
   image_.Close();
+  image_.FreeDeviceMemory();
 }
 
 void MainWindow::OpenImage() {
@@ -175,6 +176,7 @@ void MainWindow::StartVideo() {
   ui_->action_save->setEnabled(false);
   image_processor_->ClearTasks();
   image_.Close();
+  image_.Clear();
   cv::Mat frame;
   video_capture_ >> frame;
   if (frame.empty()) {
