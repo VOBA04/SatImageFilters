@@ -21,13 +21,13 @@
  */
 class TIFFImage {
  private:
-  TIFF* tif_ = nullptr;  ///< Указатель на объект TIFF.
+  TIFF* tif_ = nullptr;            ///< Указатель на объект TIFF.
   size_t width_ = 0, height_ = 0;  ///< Ширина и высота изображения.
   uint16_t samples_per_pixel_, bits_per_sample_, photo_metric_,
       resolution_unit_, config_;  ///< Параметры изображения.
   bool photo_metric_enabled_ = true,
        resolution_unit_enabled_ = true;  ///< Флаги включения параметров.
-  float resolution_x_, resolution_y_;  ///< Разрешение по осям X и Y.
+  float resolution_x_, resolution_y_;    ///< Разрешение по осям X и Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
   uint16_t* d_src_ =
@@ -380,8 +380,7 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным фильтром Гаусса.
    */
-  TIFFImage GaussianBlurCuda(const size_t size = 3,
-                             const float sigma = 0.0) const;
+  TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0);
 
   /**
    * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
@@ -397,6 +396,5 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным разделенным фильтром Гаусса.
    */
-  TIFFImage GaussianBlurSepCuda(const size_t size = 3,
-                                const float sigma = 0.0) const;
+  TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
 };

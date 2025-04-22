@@ -131,7 +131,9 @@ void TIFFImage::Save(const std::string& name) {
 }
 
 void TIFFImage::Clear() {
-  delete[] image_;
+  if (image_ != nullptr) {
+    delete[] image_;
+  }
   image_ = nullptr;
   width_ = 0;
   height_ = 0;

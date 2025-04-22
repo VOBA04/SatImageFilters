@@ -420,6 +420,9 @@ void TIFFImage::ImageToDeviceMemory(ImageOperation operation,
 }
 
 void TIFFImage::FreeDeviceMemory() {
+  if (!d_mem_allocaded_) {
+    return;
+  }
   if (d_src_ != nullptr) {
     checkCudaErrors(cudaFree(d_src_));
     d_src_ = nullptr;
@@ -635,8 +638,7 @@ TIFFImage TIFFImage::SetKernelPrewittSepCuda() const {
   return result;
 }
 
-TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
-                                      const float sigma) const {
+TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma) {
   uint16_t* h_src = image_;
   uint16_t* d_src;
   uint16_t* h_dst = new uint16_t[width_ * height_];
@@ -669,14 +671,18 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
     d_src = d_src_;
     d_dst = d_dst_;
     if (size != gaussian_kernel_size_ || sigma != gaussian_sigma_) {
+      gaussian_kernel_size_ = size;
+      gaussian_sigma_ = sigma;
       Kernel<float> kernel = Kernel<float>::GetGaussianKernel(size, sigma);
       float* h_kernel;
       size_t kernel_size =
           kernel.GetHeight() * kernel.GetWidth() * sizeof(float);
       kernel.CopyKernelTo(&h_kernel);
-      checkCudaErrors(cudaMalloc(&d_kernel, kernel_size));
-      checkCudaErrors(
-          cudaMemcpy(d_kernel, h_kernel, kernel_size, cudaMemcpyHostToDevice));
+      checkCudaErrors(cudaFree(d_gaussian_kernel_));
+      checkCudaErrors(cudaMalloc(&d_gaussian_kernel_, kernel_size));
+      checkCudaErrors(cudaMemcpy(d_gaussian_kernel_, h_kernel, kernel_size,
+                                 cudaMemcpyHostToDevice));
+      d_kernel = d_gaussian_kernel_;
       delete[] h_kernel;
     } else {
       d_kernel = d_gaussian_kernel_;
@@ -694,8 +700,6 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
     checkCudaErrors(cudaFree(d_src));
     checkCudaErrors(cudaFree(d_dst));
     checkCudaErrors(cudaFree(d_kernel));
-  } else if (gaussian_kernel_size_ != size || gaussian_sigma_ != sigma) {
-    checkCudaErrors(cudaFree(d_kernel));
   }
   TIFFImage result(*this);
   std::memcpy(result.image_, h_dst, image_size);
@@ -703,8 +707,7 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size,
   return result;
 }
 
-TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size,
-                                         const float sigma) const {
+TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size, const float sigma) {
   uint16_t* h_src = image_;
   uint16_t* d_src;
   float* d_temp;
@@ -741,14 +744,18 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size,
     d_temp = d_gaussian_sep_temp_;
     d_dst = d_dst_;
     if (size != gaussian_kernel_size_ || sigma != gaussian_sigma_) {
+      gaussian_kernel_size_ = size;
+      gaussian_sigma_ = sigma;
       Kernel<float> kernel = Kernel<float>::GetGaussianKernelSep(size, sigma);
       float* h_kernel;
       size_t kernel_size =
           kernel.GetHeight() * kernel.GetWidth() * sizeof(float);
       kernel.CopyKernelTo(&h_kernel);
-      checkCudaErrors(cudaMalloc(&d_kernel, kernel_size));
-      checkCudaErrors(
-          cudaMemcpy(d_kernel, h_kernel, kernel_size, cudaMemcpyHostToDevice));
+      checkCudaErrors(cudaFree(d_gaussian_kernel_));
+      checkCudaErrors(cudaMalloc(&d_gaussian_kernel_, kernel_size));
+      checkCudaErrors(cudaMemcpy(d_gaussian_kernel_, h_kernel, kernel_size,
+                                 cudaMemcpyHostToDevice));
+      d_kernel = d_gaussian_kernel_;
       delete[] h_kernel;
     } else {
       d_kernel = d_gaussian_kernel_;
@@ -769,8 +776,6 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size,
     checkCudaErrors(cudaFree(d_src));
     checkCudaErrors(cudaFree(d_temp));
     checkCudaErrors(cudaFree(d_dst));
-    checkCudaErrors(cudaFree(d_kernel));
-  } else if (gaussian_kernel_size_ != size || gaussian_sigma_ != sigma) {
     checkCudaErrors(cudaFree(d_kernel));
   }
   TIFFImage result(*this);
