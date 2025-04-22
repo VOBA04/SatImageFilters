@@ -22,6 +22,7 @@ add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 find_package(TIFF REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(OpenCV REQUIRED)
 
 enable_language(CUDA)
 
@@ -31,17 +32,21 @@ endif()
 if (NOT Qt6_FOUND)
     message(FATAL_ERROR "Библиотека Qt6 не найдена")
 endif()
+if (NOT OpenCV_FOUND)
+    message(FATAL_ERROR "Библиотека OpenCV не найдена")
+endif()
 
 include_directories(${SOURCE_DIR})
 include_directories(${INCLUDE_DIR})
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.cuh")
 file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${SOURCE_DIR}/*.ui")
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-target_link_libraries(${PROJECT_NAME} TIFF::TIFF CUDA::cudart Qt6::Core Qt6::Gui Qt6::Widgets)
+target_link_libraries(${PROJECT_NAME} TIFF::TIFF CUDA::cudart Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
@@ -52,3 +57,5 @@ endif()
 message(STATUS "TIFF_INCLUDE_DIRS: ${TIFF_INCLUDE_DIRS}")
 message(STATUS "TIFF_LIBRARIES: ${TIFF_LIBRARIES}")
 message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")

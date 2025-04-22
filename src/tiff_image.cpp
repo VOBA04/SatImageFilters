@@ -1,4 +1,5 @@
 #include "tiff_image.h"
+#include <qimage.h>
 #include <tiff.h>
 #include <algorithm>
 #include <cstddef>
@@ -131,8 +132,10 @@ void TIFFImage::Save(const std::string& name) {
 }
 
 void TIFFImage::Clear() {
-  delete[] image_;
-  image_ = nullptr;
+  if (image_ != nullptr) {
+    delete[] image_;
+    image_ = nullptr;
+  }
   width_ = 0;
   height_ = 0;
   samples_per_pixel_ = 0;
@@ -179,6 +182,23 @@ void TIFFImage::Set(const size_t x, const size_t y,
   } else {
     throw std::runtime_error("Изображение не загружено");
   }
+}
+
+void TIFFImage::SetImage(const size_t width, const size_t height,
+                         const uint16_t* image) noexcept(false) {
+  if (width == 0 || height == 0) {
+    throw std::runtime_error("Размер изображения не может быть нулевым");
+  }
+  if (image == nullptr) {
+    throw std::runtime_error("Изображение не может быть нулевым");
+  }
+  if (width_ != width || height_ != height) {
+    Clear();
+    width_ = width;
+    height_ = height;
+    image_ = new uint16_t[width_ * height_];
+  }
+  std::memcpy(image_, image, width_ * height_ * sizeof(uint16_t));
 }
 
 void TIFFImage::CopyFields(const TIFFImage& other) {
@@ -400,4 +420,14 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
   }
   delete[] temp;
   return result;
+}
+
+QImage TIFFImage::ToQImage() const {
+  QImage image(width_, height_, QImage::Format_Grayscale16);
+  for (size_t y = 0; y < height_; ++y) {
+    for (size_t x = 0; x < width_; ++x) {
+      image.setPixel(x, y, image_[y * width_ + x]);
+    }
+  }
+  return image;
 }
