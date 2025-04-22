@@ -260,6 +260,7 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
     return *this;
   }
   CopyFields(other);
+  // CopyDeviceMemPointers(other);
   std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
   return *this;
 }
