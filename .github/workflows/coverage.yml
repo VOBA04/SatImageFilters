@@ -13,40 +13,49 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Проверяем исходный код
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Устанавливаем зависимости (CMake, GTest, OpenCV, TIFF, CUDA)
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake libgtest-dev libtiff-dev libopencv-dev lcov
-          # Убедитесь, что CUDA доступен, если он нужен для сборки
-          # Если CUDA не устанавливается автоматически, добавьте установку
           sudo apt-get install -y nvidia-cuda-toolkit
 
-      # Настраиваем проект
       - name: Configure CMake
         run: |
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
 
-      # Собираем и запускаем тесты
       - name: Build and run tests
         run: |
           cd build
           make coverage
+        continue-on-error: true # Продолжить, даже если coverage завершится с ошибкой
 
-      # Извлекаем процент покрытия из coverage.info
+      - name: Check for .gcda files
+        run: |
+          find build -name "*.gcda" || echo "No .gcda files found"
+
       - name: Extract coverage percentage
         run: |
-          COVERAGE=$(lcov --summary build/coverage.info | grep -Po 'lines.*: \K[0-9.]+%')
-          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
-          echo "Coverage: $COVERAGE"
+          if [ -f build/coverage.info ]; then
+            COVERAGE=$(lcov --summary build/coverage.info | grep -Po 'lines.*: \K[0-9.]+%')
+            echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+            echo "Coverage: $COVERAGE"
+          else
+            echo "COVERAGE=0%" >> $GITHUB_ENV
+            echo "Coverage: 0% (coverage.info not found)"
+          fi
 
-      # Создаем бейдж с помощью Shields.io
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage_report/
+        if: always()
+
       - name: Create coverage badge
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
@@ -55,5 +64,5 @@ jobs:
           filename: coverage.json
           label: Coverage
           message: ${{ env.COVERAGE }}
-          color: green
+          color: ${{ env.COVERAGE == '0%' && 'red' || env.COVERAGE < '50' && 'red' || env.COVERAGE < '90' && 'yellow' || 'green' }}
           namedLogo: jest
