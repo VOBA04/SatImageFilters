@@ -1,5 +1,7 @@
 # SatImageFilter
 
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/VOBA04/7f58e72739aa381f9225edc7315e3d72/raw/coverage.json)
+
 Проект по реализации операторов Собеля и Превитта для обработки TIFF-файлов.
 
 ## Описание

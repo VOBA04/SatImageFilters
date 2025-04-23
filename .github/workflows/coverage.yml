@@ -1,0 +1,59 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Проверяем исходный код
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Устанавливаем зависимости (CMake, GTest, OpenCV, TIFF, CUDA)
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libgtest-dev libtiff-dev libopencv-dev lcov
+          # Убедитесь, что CUDA доступен, если он нужен для сборки
+          # Если CUDA не устанавливается автоматически, добавьте установку
+          sudo apt-get install -y nvidia-cuda-toolkit
+
+      # Настраиваем проект
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Debug ..
+
+      # Собираем и запускаем тесты
+      - name: Build and run tests
+        run: |
+          cd build
+          make coverage
+
+      # Извлекаем процент покрытия из coverage.info
+      - name: Extract coverage percentage
+        run: |
+          COVERAGE=$(lcov --summary build/coverage.info | grep -Po 'lines.*: \K[0-9.]+%')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+          echo "Coverage: $COVERAGE"
+
+      # Создаем бейдж с помощью Shields.io
+      - name: Create coverage badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: coverage.json
+          label: Coverage
+          message: ${{ env.COVERAGE }}
+          color: green
+          namedLogo: jest
