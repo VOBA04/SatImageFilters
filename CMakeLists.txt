@@ -11,10 +11,6 @@ set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
 set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 87 89 90)
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -fprofile-arcs -ftest-coverage")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
-endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -57,6 +53,14 @@ list(REMOVE_ITEM TEST_SOURCES "${SOURCE_DIR}/speedtest.cpp")
 add_executable(${PROJECT_NAME} ${SOURCES})
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_options(unit_tests PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
+    )
+    target_link_options(unit_tests PRIVATE --coverage)
+    message(STATUS "Coverage flags enabled for unit_tests (CXX): --coverage -fprofile-arcs -ftest-coverage")
+endif()
 
 target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES})
 target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES})

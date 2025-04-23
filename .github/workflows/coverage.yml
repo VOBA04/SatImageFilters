@@ -10,7 +10,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -22,6 +22,14 @@ jobs:
           sudo apt-get install -y cmake libgtest-dev libtiff-dev libopencv-dev lcov
           sudo apt-get install -y nvidia-cuda-toolkit
 
+      - name: Check tool versions
+        run: |
+          gcc --version
+          gcov --version
+          lcov --version
+          nvcc --version
+          nvidia-smi || echo "No GPU available"
+
       - name: Configure CMake
         run: |
           mkdir build
@@ -32,7 +40,14 @@ jobs:
         run: |
           cd build
           make coverage
-        continue-on-error: true # Продолжить, даже если coverage завершится с ошибкой
+        continue-on-error: true
+
+      - name: Run tests with output
+        run: |
+          cd build
+          ./unit_tests --gtest_output=xml:tests.xml
+          cat tests.xml
+        continue-on-error: true
 
       - name: Check for .gcda files
         run: |
