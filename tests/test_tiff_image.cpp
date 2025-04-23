@@ -9,6 +9,7 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <filesystem>
+#include <cuda_runtime.h>
 
 const std::string kTestImagePath =
     std::string(PROJECT_SOURCE_DIR) + "/tests/test_image.tiff";
@@ -23,6 +24,24 @@ void CreateTestImage(int width, int height) {
     }
   }
   cv::imwrite(kTestImagePath, img);
+}
+
+inline bool IsCudaAvailable(std::string* error_message = nullptr) {
+  int device_count = 0;
+  cudaError_t error = cudaGetDeviceCount(&device_count);
+  if (error != cudaSuccess) {
+    if (error_message != nullptr) {
+      *error_message = "CUDA error: " + std::string(cudaGetErrorString(error));
+    }
+    return false;
+  }
+  if (device_count == 0) {
+    if (error_message != nullptr) {
+      *error_message = "No CUDA-capable devices found.";
+    }
+    return false;
+  }
+  return true;
 }
 
 TEST(TIFFImageTest, LoadAndSave) {
@@ -107,13 +126,17 @@ TEST(TIFFImageTest, GaussianBlur) {
       EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cv.at<uint16_t>(i, j), 1);
     }
   }
+  fs::remove(kTestImagePath);
   TIFFImage blurred_cpu_sep = img.GaussianBlurSep(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cpu_sep);
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
   TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda);
   TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
-  fs::remove(kTestImagePath);
 }
 
 TEST(TIFFImageTest, SobelFilter) {
@@ -135,13 +158,17 @@ TEST(TIFFImageTest, SobelFilter) {
       EXPECT_EQ(sobel.Get(j, i), sobel_cv.at<uint16_t>(i, j));
     }
   }
+  fs::remove(kTestImagePath);
   TIFFImage sobel_sep = img.SetKernelSobelSep();
   EXPECT_TRUE(sobel == sobel_sep);
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
   TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel);
   EXPECT_TRUE(sobel == sobel_cuda);
   TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
   EXPECT_TRUE(sobel == sobel_cuda_sep);
-  fs::remove(kTestImagePath);
 }
 
 TEST(TIFFImageTest, PrewittFilter) {
@@ -172,13 +199,17 @@ TEST(TIFFImageTest, PrewittFilter) {
       EXPECT_EQ(prewitt.Get(j, i), prewitt_cv.at<uint16_t>(i, j));
     }
   }
+  fs::remove(kTestImagePath);
   TIFFImage prewitt_sep = img.SetKernelPrewittSep();
   EXPECT_TRUE(prewitt == prewitt_sep);
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
   TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
   EXPECT_TRUE(prewitt == prewitt_cuda);
   TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
   EXPECT_TRUE(prewitt == prewitt_cuda_sep);
-  fs::remove(kTestImagePath);
 }
 
 TEST(TIFFImageTest, InvalidFile) {
@@ -186,6 +217,10 @@ TEST(TIFFImageTest, InvalidFile) {
 }
 
 TEST(TIFFImageTest, LargeImage) {
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
   TIFFImage img(10000, 10000);
   img.ImageToDeviceMemory(ImageOperation::GaussianBlur, 3, 1.0);
   EXPECT_NO_THROW(img.GaussianBlurCuda(3, 1.0));
@@ -193,6 +228,10 @@ TEST(TIFFImageTest, LargeImage) {
 }
 
 TEST(TIFFImageTest, CudaMemoryManagement) {
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
   EXPECT_NO_THROW(
