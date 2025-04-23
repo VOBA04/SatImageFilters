@@ -73,9 +73,9 @@ add_custom_target(coverage
     COMMAND lcov --zerocounters --directory .
     COMMAND ${CMAKE_COMMAND} --build . --target unit_tests
     COMMAND ctest -C Debug -R ^unit_tests$
-    COMMAND geninfo ${CMAKE_BINARY_DIR} --base-directory ${CMAKE_SOURCE_DIR} --output-filename coverage.info --ignore-errors mismatch,source,gcov,empty --rc geninfo_unexecuted_blocks=1
+    COMMAND geninfo ${CMAKE_BINARY_DIR} --base-directory ${CMAKE_SOURCE_DIR} --output-filename coverage.info --ignore-errors source,gcov,empty --rc geninfo_unexecuted_blocks=1
     COMMAND lcov --ignore-errors unused,source,empty --remove coverage.info '/usr/*' '*/tests/*' '/home/vova/OpenCV/*' '${CMAKE_SOURCE_DIR}/tests/*' '${CMAKE_SOURCE_DIR}/src/*.cu' --output-file coverage.info
-    COMMAND genhtml coverage.info --output-directory coverage_report || true
+    COMMAND genhtml coverage.info --output-directory coverage_report --ignore-errors empty || true
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating code coverage report"
     DEPENDS unit_tests
