@@ -114,7 +114,7 @@ TEST(TIFFImageTest, Clrear) {
   EXPECT_NO_FATAL_FAILURE(img.Clear());
 }
 
-TEST(TIFFImageTest, GaussianBlur) {
+TEST(TIFFImageTest, GaussianBlurCPU) {
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
   TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
@@ -126,20 +126,27 @@ TEST(TIFFImageTest, GaussianBlur) {
       EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cv.at<uint16_t>(i, j), 1);
     }
   }
-  fs::remove(kTestImagePath);
   TIFFImage blurred_cpu_sep = img.GaussianBlurSep(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cpu_sep);
+  fs::remove(kTestImagePath);
+}
+
+TEST(TIFFImageTest, GaussianBlurGPU) {
   std::string cuda_error;
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
+  CreateTestImage(100, 100);
+  TIFFImage img(kTestImagePath);
+  TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
   TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda);
   TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
+  fs::remove(kTestImagePath);
 }
 
-TEST(TIFFImageTest, SobelFilter) {
+TEST(TIFFImageTest, SobelFilterCPU) {
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
   TIFFImage sobel_x = img.SetKernel(kKernelSobel, false);
@@ -158,20 +165,27 @@ TEST(TIFFImageTest, SobelFilter) {
       EXPECT_EQ(sobel.Get(j, i), sobel_cv.at<uint16_t>(i, j));
     }
   }
-  fs::remove(kTestImagePath);
   TIFFImage sobel_sep = img.SetKernelSobelSep();
   EXPECT_TRUE(sobel == sobel_sep);
+  fs::remove(kTestImagePath);
+}
+
+TEST(TIFFImageTest, SobelFilterGPU) {
   std::string cuda_error;
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
+  CreateTestImage(100, 100);
+  TIFFImage img(kTestImagePath);
+  TIFFImage sobel = img.SetKernel(kKernelSobel);
   TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel);
   EXPECT_TRUE(sobel == sobel_cuda);
   TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
   EXPECT_TRUE(sobel == sobel_cuda_sep);
+  fs::remove(kTestImagePath);
 }
 
-TEST(TIFFImageTest, PrewittFilter) {
+TEST(TIFFImageTest, PrewittFilterCPU) {
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
   TIFFImage prewitt_x = img.SetKernel(kKernelPrewitt, false);
@@ -210,6 +224,21 @@ TEST(TIFFImageTest, PrewittFilter) {
   EXPECT_TRUE(prewitt == prewitt_cuda);
   TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
   EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+}
+
+TEST(TIFFImageTest, PrewittFilterGPU) {
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
+  CreateTestImage(100, 100);
+  TIFFImage img(kTestImagePath);
+  TIFFImage prewitt = img.SetKernel(kKernelPrewitt);
+  TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
+  EXPECT_TRUE(prewitt == prewitt_cuda);
+  TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
+  EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+  fs::remove(kTestImagePath);
 }
 
 TEST(TIFFImageTest, InvalidFile) {
