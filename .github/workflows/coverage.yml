@@ -38,10 +38,19 @@ jobs:
         run: |
           find build -name "*.gcda" || echo "No .gcda files found"
 
+      - name: Check for coverage.info
+        run: |
+          if [ -f build/coverage.info ]; then
+            echo "coverage.info found"
+            cat build/coverage.info
+          else
+            echo "coverage.info not found"
+          fi
+
       - name: Extract coverage percentage
         run: |
           if [ -f build/coverage.info ]; then
-            COVERAGE=$(lcov --summary build/coverage.info | grep -Po 'lines.*: \K[0-9.]+%')
+            COVERAGE=$(lcov --summary build/coverage.info --ignore-errors empty | grep -Po 'lines.*: \K[0-9.]+%' || echo "0%")
             echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
             echo "Coverage: $COVERAGE"
           else
@@ -54,6 +63,7 @@ jobs:
         with:
           name: coverage-report
           path: build/coverage_report/
+          if-no-files-found: warn
         if: always()
 
       - name: Create coverage badge
