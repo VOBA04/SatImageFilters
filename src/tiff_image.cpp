@@ -37,6 +37,19 @@ TIFFImage::TIFFImage(const std::string name) noexcept(false) {
   Open(name);
 }
 
+TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
+                     uint16_t bits_per_sample, uint16_t photo_metric,
+                     uint16_t resolution_unit, uint16_t config)
+    : width_(width),
+      height_(height),
+      samples_per_pixel_(samples_per_pixel),
+      bits_per_sample_(bits_per_sample),
+      photo_metric_(photo_metric),
+      resolution_unit_(resolution_unit),
+      config_(config) {
+  image_ = new uint16_t[width_ * height_];
+}
+
 TIFFImage::TIFFImage(const TIFFImage& other) {
   CopyFields(other);
   CopyDeviceMemPointers(other);
@@ -261,7 +274,8 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
             g_y += kernel_y.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
-        result.image_[i * width_ + j] = abs(g_x) + abs(g_y);
+        result.image_[i * width_ + j] =
+            std::clamp(abs(g_x) + abs(g_y), 0, 65535);
       }
     }
   } else {
@@ -274,7 +288,7 @@ TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
             g += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
           }
         }
-        result.image_[i * width_ + j] = abs(g);
+        result.image_[i * width_ + j] = std::clamp(abs(g), 0, 65535);
       }
     }
   }
@@ -299,14 +313,12 @@ TIFFImage TIFFImage::SetKernelSobelSep() const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       for (int k = -1; k <= 1; k++) {
-        if ((int)i + k >= 0 && i + k < height_) {
-          result_x[i * width_ + j] +=
-              g_x[(i + k) * width_ + j] * kKernelGradientX.Get(k + 1, 0);
-        }
-        if ((int)j + k >= 0 && j + k < width_) {
-          result_y[i * width_ + j] +=
-              g_y[i * width_ + j + k] * kKernelGradientY.Get(0, k + 1);
-        }
+        result_x[i * width_ + j] +=
+            g_x[std::clamp((int)(i + k), 0, (int)height_ - 1) * width_ + j] *
+            kKernelGradientX.Get(k + 1, 0);
+        result_y[i * width_ + j] +=
+            g_y[i * width_ + std::clamp((int)j + k, 0, (int)width_ - 1)] *
+            kKernelGradientY.Get(0, k + 1);
       }
     }
   }
@@ -336,14 +348,12 @@ TIFFImage TIFFImage::SetKernelPrewittSep() const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       for (int k = -1; k <= 1; k++) {
-        if ((int)i + k >= 0 && i + k < height_) {
-          result_x[i * width_ + j] +=
-              g_x[(i + k) * width_ + j] * kKernelGradientX.Get(k + 1, 0);
-        }
-        if ((int)j + k >= 0 && j + k < width_) {
-          result_y[i * width_ + j] +=
-              g_y[i * width_ + j + k] * kKernelGradientY.Get(0, k + 1);
-        }
+        result_x[i * width_ + j] +=
+            g_x[std::clamp((int)(i + k), 0, (int)height_ - 1) * width_ + j] *
+            kKernelGradientX.Get(k + 1, 0);
+        result_y[i * width_ + j] +=
+            g_y[i * width_ + std::clamp((int)j + k, 0, (int)width_ - 1)] *
+            kKernelGradientY.Get(0, k + 1);
       }
     }
   }
@@ -392,10 +402,8 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
     for (size_t j = 0; j < width_; j++) {
       float sum = 0.0;
       for (int k = -radius; k <= radius; k++) {
-        if (((int)j + k) < 0 || (j + k) >= width_) {
-          continue;
-        }
-        sum += kernel.Get(k + radius, 0) * temp[i * width_ + j + k];
+        sum += kernel.Get(k + radius, 0) *
+               temp[i * width_ + std::clamp((int)j + k, 0, (int)width_ - 1)];
       }
       result.image_[i * width_ + j] = static_cast<uint16_t>(sum);
     }

@@ -36,6 +36,7 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 build_speedtest.sh
+generate_test_image.py
 
 # Prerequisites
 *.d
