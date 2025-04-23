@@ -30,7 +30,11 @@ TEST(TIFFImageTest, LoadAndSave) {
   TIFFImage img(kTestImagePath);
   EXPECT_EQ(img.GetWidth(), 100);
   EXPECT_EQ(img.GetHeight(), 100);
-  img.Save(std::string(PROJECT_SOURCE_DIR) + "/tests/test_image_copy.tiff");
+  EXPECT_NO_THROW(img.Save(std::string(PROJECT_SOURCE_DIR) +
+                           "/tests/test_image_copy.tiff"));
+  EXPECT_THROW(
+      img.Save(std::string(PROJECT_SOURCE_DIR) + "tests/test_image_copy.tiff"),
+      std::runtime_error);
   TIFFImage img_copy(std::string(PROJECT_SOURCE_DIR) +
                      "/tests/test_image_copy.tiff");
   EXPECT_TRUE(img == img_copy);
@@ -52,12 +56,27 @@ TEST(TIFFImageTest, CopyAssignment) {
   TIFFImage img_copy;
   img_copy = img;
   EXPECT_TRUE(img == img_copy);
+  img = img_copy;
+  EXPECT_TRUE(img == img_copy);
+  EXPECT_NO_FATAL_FAILURE(img_copy.CopyFields(img));
+  fs::remove(kTestImagePath);
+}
+
+TEST(TIFFImageTest, NotEqual) {
+  CreateTestImage(100, 100);
+  TIFFImage img(kTestImagePath);
+  TIFFImage img2(200, 200);
+  TIFFImage img3(img);
+  img3.Set(0, 0, 1);
+  EXPECT_FALSE(img == img2);
+  EXPECT_FALSE(img == img3);
   fs::remove(kTestImagePath);
 }
 
 TEST(TIFFImageTest, GetSetPixel) {
   TIFFImage void_img;
   EXPECT_THROW(void_img.Get(0, 0), std::runtime_error);
+  EXPECT_THROW(void_img.Set(0, 0, 65535), std::runtime_error);
   TIFFImage img(100, 100);
   img.Set(50, 50, 65535);
   img.Set(0, 0, 65535);
@@ -66,6 +85,14 @@ TEST(TIFFImageTest, GetSetPixel) {
   EXPECT_THROW(img.Set(100, 50, 65535), std::runtime_error);
   EXPECT_EQ(img.Get(-1, -1), 65535);
   EXPECT_EQ(img.Get(100, 100), 65535);
+}
+
+TEST(TIFFImageTest, Clrear) {
+  TIFFImage img(100, 100);
+  img.Set(50, 50, 65535);
+  img.Clear();
+  EXPECT_THROW(img.Get(50, 50), std::runtime_error);
+  EXPECT_NO_FATAL_FAILURE(img.Clear());
 }
 
 TEST(TIFFImageTest, GaussianBlur) {
@@ -103,9 +130,9 @@ TEST(TIFFImageTest, SobelFilter) {
   cv::addWeighted(sobel_x_cv, 1, sobel_y_cv, 1, 0, sobel_cv);
   for (size_t i = 0; i < img.GetHeight(); ++i) {
     for (size_t j = 0; j < img.GetWidth(); ++j) {
-      EXPECT_NEAR(sobel_x.Get(j, i), sobel_x_cv.at<uint16_t>(i, j), 1);
-      EXPECT_NEAR(sobel_y.Get(j, i), sobel_y_cv.at<uint16_t>(i, j), 1);
-      EXPECT_NEAR(sobel.Get(j, i), sobel_cv.at<uint16_t>(i, j), 1);
+      EXPECT_EQ(sobel_x.Get(j, i), sobel_x_cv.at<uint16_t>(i, j));
+      EXPECT_EQ(sobel_y.Get(j, i), sobel_y_cv.at<uint16_t>(i, j));
+      EXPECT_EQ(sobel.Get(j, i), sobel_cv.at<uint16_t>(i, j));
     }
   }
   TIFFImage sobel_sep = img.SetKernelSobelSep();
@@ -140,9 +167,9 @@ TEST(TIFFImageTest, PrewittFilter) {
   cv::addWeighted(prewitt_x_cv, 1, prewitt_y_cv, 1, 0, prewitt_cv);
   for (size_t i = 0; i < img.GetHeight(); ++i) {
     for (size_t j = 0; j < img.GetWidth(); ++j) {
-      EXPECT_NEAR(prewitt_x.Get(j, i), prewitt_x_cv.at<uint16_t>(i, j), 1);
-      EXPECT_NEAR(prewitt_y.Get(j, i), prewitt_y_cv.at<uint16_t>(i, j), 1);
-      EXPECT_NEAR(prewitt.Get(j, i), prewitt_cv.at<uint16_t>(i, j), 1);
+      EXPECT_EQ(prewitt_x.Get(j, i), prewitt_x_cv.at<uint16_t>(i, j));
+      EXPECT_EQ(prewitt_y.Get(j, i), prewitt_y_cv.at<uint16_t>(i, j));
+      EXPECT_EQ(prewitt.Get(j, i), prewitt_cv.at<uint16_t>(i, j));
     }
   }
   TIFFImage prewitt_sep = img.SetKernelPrewittSep();

@@ -52,9 +52,9 @@ class KernelException : public std::exception {
  * Используется в методе @ref Kernel::Rotate для указания угла вращения.
  */
 enum class KernelRotationDegrees {
-  DEGREES_90,  ///< Поворот на 90 градусов по часовой стрелке
+  DEGREES_90,   ///< Поворот на 90 градусов по часовой стрелке
   DEGREES_180,  ///< Поворот на 180 градусов
-  DEGREES_270  ///< Поворот на 270 градусов по часовой стрелке
+  DEGREES_270   ///< Поворот на 270 градусов по часовой стрелке
 };
 
 /**
@@ -67,9 +67,9 @@ enum class KernelRotationDegrees {
 template <typename T>
 class Kernel {
  private:
-  size_t height_ = 0;  ///< Высота ядра
-  size_t width_ = 0;   ///< Ширина ядра
-  T* kernel_ = nullptr;  ///< Одномерный массив, представляющий ядро
+  size_t height_ = 0;       ///< Высота ядра
+  size_t width_ = 0;        ///< Ширина ядра
+  T* kernel_ = nullptr;     ///< Одномерный массив, представляющий ядро
   bool rotatable_ = false;  ///< Флаг, указывающий, можно ли вращать ядро
 
  public:
@@ -93,8 +93,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  Kernel(const size_t height, const size_t width, const T** kernel,
-         bool rotatable);
+  Kernel(const size_t height, const size_t width, T** kernel, bool rotatable);
 
   /**
    * @brief Конструктор с параметрами.
@@ -109,8 +108,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  Kernel(const size_t height, const size_t width, const T* kernel,
-         bool rotatable);
+  Kernel(const size_t height, const size_t width, T* kernel, bool rotatable);
 
   /**
    * @brief Конструктор с инициализатором списка.
@@ -168,8 +166,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  void Set(const size_t height, const size_t width, const T** kernel,
-           bool rotatable);
+  void Set(const size_t height, const size_t width, T** kernel, bool rotatable);
 
   /**
    * @brief Устанавливает новое ядро.
@@ -183,8 +180,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  void Set(const size_t height, const size_t width, const T* kernel,
-           bool rotatable);
+  void Set(const size_t height, const size_t width, T* kernel, bool rotatable);
 
   /**
    * @brief Оператор присваивания.
@@ -336,7 +332,7 @@ Kernel<T>::Kernel()
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t height, const size_t width, const T** kernel,
+Kernel<T>::Kernel(const size_t height, const size_t width, T** kernel,
                   bool rotatable)
     : height_{height},
       width_{width},
@@ -348,19 +344,23 @@ Kernel<T>::Kernel(const size_t height, const size_t width, const T** kernel,
   if (kernel == nullptr) {
     throw KernelException("Передан нулевой указатель на ядро");
   }
-  kernel_ = new T[height * width];
   for (size_t i = 0; i < height; i++) {
     for (size_t j = 0; j < width; j++) {
       if (kernel[i] == nullptr) {
         throw KernelException("Передан нулевой указатель на строку ядра");
       }
+    }
+  }
+  kernel_ = new T[height * width];
+  for (size_t i = 0; i < height; i++) {
+    for (size_t j = 0; j < width; j++) {
       kernel_[i * width + j] = kernel[i][j];
     }
   }
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t height, const size_t width, const T* kernel,
+Kernel<T>::Kernel(const size_t height, const size_t width, T* kernel,
                   bool rotatable)
     : height_{height},
       width_{width},
@@ -430,11 +430,14 @@ Kernel<T>::Kernel(const size_t height, const size_t width, bool rotatable)
 
 template <typename T>
 Kernel<T>::~Kernel() {
-  delete[] kernel_;
+  if (kernel_ != nullptr) {
+    delete[] kernel_;
+    kernel_ = nullptr;
+  }
 }
 
 template <typename T>
-void Kernel<T>::Set(const size_t height, const size_t width, const T** kernel,
+void Kernel<T>::Set(const size_t height, const size_t width, T** kernel,
                     bool rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
@@ -459,7 +462,7 @@ void Kernel<T>::Set(const size_t height, const size_t width, const T** kernel,
 }
 
 template <typename T>
-void Kernel<T>::Set(const size_t height, const size_t width, const T* kernel,
+void Kernel<T>::Set(const size_t height, const size_t width, T* kernel,
                     bool rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
@@ -643,7 +646,9 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
   }
-  delete[] kernel_;
+  if (kernel_ != nullptr) {
+    delete[] kernel_;
+  }
   height_ = height;
   width_ = width;
   rotatable_ = rotate;

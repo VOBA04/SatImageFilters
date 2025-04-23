@@ -58,7 +58,10 @@ TIFFImage::TIFFImage(const TIFFImage& other) {
 
 TIFFImage::~TIFFImage() {
   Close();
-  delete[] image_;
+  if (image_ != nullptr) {
+    delete[] image_;
+    image_ = nullptr;
+  }
 }
 
 void TIFFImage::Open(const char* name) noexcept(false) {
@@ -106,7 +109,6 @@ void TIFFImage::Close() {
   if (tif_ != nullptr) {
     TIFFClose(tif_);
     tif_ = nullptr;
-    FreeDeviceMemory();
   }
 }
 
@@ -197,7 +199,6 @@ void TIFFImage::Set(const size_t x, const size_t y,
 }
 
 void TIFFImage::CopyFields(const TIFFImage& other) {
-  Clear();
   width_ = other.width_;
   height_ = other.height_;
   samples_per_pixel_ = other.samples_per_pixel_;
@@ -209,6 +210,9 @@ void TIFFImage::CopyFields(const TIFFImage& other) {
   resolution_unit_enabled_ = other.resolution_unit_enabled_;
   resolution_x_ = other.resolution_x_;
   resolution_y_ = other.resolution_y_;
+  if (image_ != nullptr) {
+    delete[] image_;
+  }
   image_ = new uint16_t[width_ * height_];
 }
 
@@ -255,6 +259,7 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
     return *this;
   }
   CopyFields(other);
+  CopyDeviceMemPointers(other);
   std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
   return *this;
 }
