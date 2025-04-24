@@ -69,12 +69,18 @@ target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main pthread ${O
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
+if(DEFINED ENV{GITHUB_ACTIONS})
+    set(EXCLUDE_CUDA " '${CMAKE_SOURCE_DIR}/src/*.cu'")
+else()
+    set(EXCLUDE_CUDA "")
+endif()
+
 add_custom_target(coverage
     COMMAND lcov --zerocounters --directory .
     COMMAND ${CMAKE_COMMAND} --build . --target unit_tests
     COMMAND ctest -C Debug -R ^unit_tests$
     COMMAND geninfo ${CMAKE_BINARY_DIR} --base-directory ${CMAKE_SOURCE_DIR} --output-filename coverage.info --ignore-errors source,gcov,mismatch,version --rc geninfo_unexecuted_blocks=1
-    COMMAND lcov --ignore-errors unused,source,empty,mismatch,version --remove coverage.info '/usr/*' '*/tests/*' '/home/vova/OpenCV/*' '/tmp/*' --output-file coverage.info
+    COMMAND lcov --ignore-errors unused,source,empty,mismatch,version --remove coverage.info '/usr/*' '*/tests/*' '*/OpenCV/*' '/tmp/*' ${EXCLUDE_CUDA} --output-file coverage.info
     COMMAND genhtml coverage.info --output-directory coverage_report --ignore-errors empty || true
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating code coverage report"
