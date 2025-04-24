@@ -1,6 +1,7 @@
 # SatImageFilter
 
 ![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/VOBA04/7f58e72739aa381f9225edc7315e3d72/raw/coverage.json)
+[![wakatime](https://wakatime.com/badge/user/11288404-d9dc-4a59-abbb-f91d607d51fc/project/828a01b2-3c50-45e3-954e-c916bc5026bc.svg)](https://wakatime.com/badge/user/11288404-d9dc-4a59-abbb-f91d607d51fc/project/828a01b2-3c50-45e3-954e-c916bc5026bc)
 
 Проект по реализации операторов Собеля и Превитта для обработки TIFF-файлов.
 
