@@ -141,6 +141,7 @@ void MainWindow::ProcessImage() {
 
 void MainWindow::UpdateResult(const TIFFImage& result_image) {
   result_image_ = result_image;
+  image_.CopyDeviceMemPointers(result_image);
   processed_pixmap_ = QPixmap::fromImage(result_image.ToQImage());
   QPixmap scaled_pixmap =
       processed_pixmap_.scaled(ui_->label_image_result->size(),
