@@ -70,7 +70,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 if(DEFINED ENV{GITHUB_ACTIONS})
-    set(EXCLUDE_CUDA " '${CMAKE_SOURCE_DIR}/src/*.cu'")
+    set(EXCLUDE_CUDA " '*/src/*.cu'")
 else()
     set(EXCLUDE_CUDA "")
 endif()
