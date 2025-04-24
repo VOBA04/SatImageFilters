@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <opencv2/core/hal/interface.h>
 #include <tiffio.h>
+#include "image_operation.h"
 #include "kernel.h"
 #include "tiff_image.h"
 #include <cstdlib>
@@ -139,10 +140,28 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
   TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
+  TIFFImage blurred_cpu2 = img.GaussianBlur(3, 2.0);
   TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda);
   TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
   EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
+  img.ImageToDeviceMemory(ImageOperation::GaussianBlur, 3, 1.0);
+  blurred_cuda = img.GaussianBlurCuda(3, 1.0);
+  EXPECT_TRUE(blurred_cpu == blurred_cuda);
+  blurred_cuda = img.GaussianBlurCuda(3, 2.0);
+  EXPECT_TRUE(blurred_cpu2 == blurred_cuda);
+  img.FreeDeviceMemory();
+  img.ImageToDeviceMemory(ImageOperation::GaussianBlurSep, 3, 1.0);
+  blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
+  EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
+  blurred_cuda_sep = img.GaussianBlurSepCuda(3, 2.0);
+  for (size_t i = 0; i < blurred_cpu2.GetHeight(); ++i) {
+    for (size_t j = 0; j < blurred_cpu2.GetWidth(); ++j) {
+      EXPECT_NEAR(blurred_cpu2.Get(j, i), blurred_cuda_sep.Get(j, i), 1)
+          << "Mismatch at pixel (" << j << ", " << i << ")";
+    }
+  }
+  img.FreeDeviceMemory();
   fs::remove(kTestImagePath);
 }
 
@@ -182,6 +201,15 @@ TEST(TIFFImageTest, SobelFilterGPU) {
   EXPECT_TRUE(sobel == sobel_cuda);
   TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
   EXPECT_TRUE(sobel == sobel_cuda_sep);
+  img.ImageToDeviceMemory(ImageOperation::Sobel, 3, 1.0);
+  sobel_cuda = img.SetKernelCuda(kKernelSobel);
+  EXPECT_TRUE(sobel == sobel_cuda);
+  img.FreeDeviceMemory();
+  img.ImageToDeviceMemory(ImageOperation::Sobel | ImageOperation::Separated, 3,
+                          1.0);
+  sobel_cuda_sep = img.SetKernelSobelSepCuda();
+  EXPECT_TRUE(sobel == sobel_cuda_sep);
+  img.FreeDeviceMemory();
   fs::remove(kTestImagePath);
 }
 
@@ -216,14 +244,6 @@ TEST(TIFFImageTest, PrewittFilterCPU) {
   fs::remove(kTestImagePath);
   TIFFImage prewitt_sep = img.SetKernelPrewittSep();
   EXPECT_TRUE(prewitt == prewitt_sep);
-  std::string cuda_error;
-  if (!IsCudaAvailable(&cuda_error)) {
-    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
-  }
-  TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
-  EXPECT_TRUE(prewitt == prewitt_cuda);
-  TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
-  EXPECT_TRUE(prewitt == prewitt_cuda_sep);
 }
 
 TEST(TIFFImageTest, PrewittFilterGPU) {
@@ -238,6 +258,15 @@ TEST(TIFFImageTest, PrewittFilterGPU) {
   EXPECT_TRUE(prewitt == prewitt_cuda);
   TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
   EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+  img.ImageToDeviceMemory(ImageOperation::Prewitt, 3, 1.0);
+  prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
+  img.FreeDeviceMemory();
+  EXPECT_TRUE(prewitt == prewitt_cuda);
+  img.ImageToDeviceMemory(ImageOperation::Prewitt | ImageOperation::Separated,
+                          3, 1.0);
+  prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
+  EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+  img.FreeDeviceMemory();
   fs::remove(kTestImagePath);
 }
 
@@ -263,14 +292,28 @@ TEST(TIFFImageTest, CudaMemoryManagement) {
   }
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
+  EXPECT_THROW(img.CopyImageToDevice(), std::runtime_error);
   EXPECT_NO_THROW(
       img.ImageToDeviceMemory(ImageOperation::GaussianBlur, 3, 1.0));
   TIFFImage img_copy = img;
   img_copy.CopyImageToDevice();
   TIFFImage blurred = img_copy.GaussianBlurCuda(3, 1.0);
+  TIFFImage copy = img_copy.SetKernelCuda(
+      Kernel<int>(3, 3, {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}}, false));
+  EXPECT_TRUE(img_copy == copy);
+
   EXPECT_NO_THROW(img_copy.FreeDeviceMemory());
+  EXPECT_NO_THROW(img_copy.ImageToDeviceMemory(
+      ImageOperation::GaussianBlur | ImageOperation::Sobel |
+          ImageOperation::Prewitt | ImageOperation::Separated,
+      3, 1.0));
+  EXPECT_NO_THROW(img_copy.FreeDeviceMemory());
+  EXPECT_THROW(img_copy.ImageToDeviceMemory(ImageOperation::GaussianBlur |
+                                                ImageOperation::GaussianBlurSep,
+                                            3, 1.0),
+               std::runtime_error);
   EXPECT_NO_THROW(
-      img_copy.ImageToDeviceMemory(ImageOperation::GaussianBlur, 3, 1.0));
-  img_copy.FreeDeviceMemory();
+      img_copy.ImageToDeviceMemory(ImageOperation::GaussianBlurSep, 3, 1.0));
+  EXPECT_NO_THROW(img_copy.FreeDeviceMemory());
   fs::remove(kTestImagePath);
 }
