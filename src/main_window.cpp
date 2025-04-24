@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
+#include <stdexcept>
 
 struct ComboBoxItem {
   QString display_text;
@@ -87,7 +88,13 @@ void MainWindow::OpenImage() {
     ui_->action_save->setEnabled(true);
     image_processor_->ClearTasks();
     image_.Close();
-    image_.Open(filename.toStdString().c_str());
+    try {
+      image_.Open(filename.toStdString().c_str());
+    } catch (const std::runtime_error& e) {
+      QMessageBox::warning(this, tr("Ошибка"),
+                           tr("Не удалось открыть файл: %1").arg(e.what()));
+      return;
+    }
     image_.ImageToDeviceMemory(ImageOperation::Sobel | ImageOperation::Prewitt |
                                    ImageOperation::GaussianBlur,
                                ui_->spinbox->value(),
