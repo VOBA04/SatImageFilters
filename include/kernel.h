@@ -13,6 +13,7 @@
 #include <cstring>
 #include <exception>
 #include <initializer_list>
+#include <iostream>
 #include <string>
 #include <cmath>
 #include <fstream>
@@ -498,9 +499,14 @@ bool Kernel<T>::operator==(const Kernel& other) const {
   if (height_ != other.height_ || width_ != other.width_) {
     return false;
   }
-  for (size_t i = 0; i < height_ * width_; i++) {
-    if (kernel_[i] != other.kernel_[i]) {
-      return false;
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      if (kernel_[i * width_ + j] != other.kernel_[i * other.width_ + j]) {
+        std::cerr << "Kernel mismatch at (" << i << ", " << j
+                  << "): " << kernel_[i * width_ + j]
+                  << " != " << other.kernel_[i * other.width_ + j] << std::endl;
+        return false;
+      }
     }
   }
   return true;
