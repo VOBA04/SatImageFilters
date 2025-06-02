@@ -2,6 +2,8 @@
 #include <cstddef>
 #include "kernel.h"
 #include <filesystem>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/opencv.hpp>
 
 namespace fs = std::filesystem;
 
@@ -170,9 +172,26 @@ TEST(KernelTest, KernelGaussianKernel) {
   EXPECT_EQ(kernel.GetHeight(), 3);
   EXPECT_EQ(kernel.GetWidth(), 3);
   EXPECT_FALSE(kernel.IsRotatable());
-  EXPECT_NEAR(kernel.Get(0, 0), 0.075113, 5e-5);
-  EXPECT_NEAR(kernel.Get(1, 1), 0.204173, 5e-5);
-  EXPECT_NEAR(kernel.Get(2, 2), 0.075113, 5e-5);
+  cv::Mat kernel_cv = cv::getGaussianKernel(3, 1.0, CV_32F) *
+                      cv::getGaussianKernel(3, 1.0, CV_32F).t();
+  for (size_t i = 0; i < kernel.GetHeight(); i++) {
+    for (size_t j = 0; j < kernel.GetWidth(); j++) {
+      EXPECT_NEAR(kernel.Get(j, i), kernel_cv.at<float>(i, j), 1e-5)
+          << "Mismatch at (" << j << ", " << i << ")";
+    }
+  }
+  for (size_t k = 3; k <= 9; k += 2) {
+    Kernel<float> kernel_default = Kernel<float>::GetGaussianKernel(k, 0);
+    cv::Mat kernel_cv_default = cv::getGaussianKernel(k, 0, CV_32F) *
+                                cv::getGaussianKernel(k, 0, CV_32F).t();
+    for (size_t i = 0; i < kernel_default.GetHeight(); i++) {
+      for (size_t j = 0; j < kernel_default.GetWidth(); j++) {
+        EXPECT_NEAR(kernel_default.Get(j, i), kernel_cv_default.at<float>(i, j),
+                    0.025)
+            << "Mismatch at (" << j << ", " << i << ")";
+      }
+    }
+  }
 }
 
 TEST(KernelTest, KernelGaussianKernelSep) {
@@ -180,9 +199,20 @@ TEST(KernelTest, KernelGaussianKernelSep) {
   EXPECT_EQ(kernel.GetHeight(), 3);
   EXPECT_EQ(kernel.GetWidth(), 1);
   EXPECT_TRUE(kernel.IsRotatable());
-  EXPECT_NEAR(kernel.Get(0, 0), 0.274079, 5e-5);
-  EXPECT_NEAR(kernel.Get(1, 0), 0.451842, 5e-5);
-  EXPECT_NEAR(kernel.Get(2, 0), 0.274079, 5e-5);
+  cv::Mat kernel_cv = cv::getGaussianKernel(3, 1.0, CV_32F);
+  for (size_t i = 0; i < kernel.GetHeight(); i++) {
+    EXPECT_NEAR(kernel.Get(0, i), kernel_cv.at<float>(i, 0), 1e-5)
+        << "Mismatch at (" << 0 << ", " << i << ")";
+  }
+  for (size_t k = 3; k <= 9; k += 2) {
+    Kernel<float> kernel_default = Kernel<float>::GetGaussianKernelSep(k, 0);
+    cv::Mat kernel_cv_default = cv::getGaussianKernel(k, 0, CV_32F);
+    for (size_t i = 0; i < kernel_default.GetHeight(); i++) {
+      EXPECT_NEAR(kernel_default.Get(0, i), kernel_cv_default.at<float>(i, 0),
+                  0.025)
+          << "Mismatch at (" << 0 << ", " << i << ")";
+    }
+  }
 }
 
 TEST(KernelTest, KernelGaussianKernelException) {

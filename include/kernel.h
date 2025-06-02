@@ -586,9 +586,10 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size, float sigma) {
   Kernel<T> gaussian_kernel(size, size, false);
   int half = size / 2;
   T sum = 0.0;
-  if (sigma == 0) {
-    sigma = size / 6.0;
-    // T sigma = size * 0.15 + 0.35;
+  if (sigma <= 0) {
+    sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8;
+    // sigma = size / 6.0;
+    //  T sigma = size * 0.15 + 0.35;
   }
   for (int i = -half; i <= half; i++) {
     for (int j = -half; j <= half; j++) {
@@ -615,9 +616,10 @@ Kernel<T> Kernel<T>::GetGaussianKernelSep(const size_t size, float sigma) {
   Kernel<T> gaussian_kernel(size, 1, true);
   int half = size / 2;
   T sum = 0.0;
-  if (sigma == 0) {
-    sigma = size / 6.0;
-    // T sigma = size * 0.15 + 0.35;
+  if (sigma <= 0) {
+    sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8;
+    // sigma = size / 6.0;
+    //  T sigma = size * 0.15 + 0.35;
   }
   for (int i = -half; i <= half; i++) {
     T g = exp(-i * i / (2 * sigma * sigma));
