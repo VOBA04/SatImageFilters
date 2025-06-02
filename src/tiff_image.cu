@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -264,7 +265,7 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
         sum += src[y * width + x] * kernel[k * ksize + l];
       }
     }
-    dst[i * width + j] = static_cast<uint16_t>(Clamp(sum, 0, 65535));
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(round(sum), 0, 65535));
   }
 }
 
@@ -319,7 +320,7 @@ __global__ void CudaGaussianBlurSepVertical(float* src, uint16_t* dst,
       y = Clamp(y, 0, height - 1);
       sum += src[y * width + j] * kernel[k];
     }
-    dst[i * width + j] = static_cast<uint16_t>(Clamp(sum, 0, 65535));
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(round(sum), 0, 65535));
   }
 }
 

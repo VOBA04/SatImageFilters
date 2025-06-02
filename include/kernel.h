@@ -502,9 +502,10 @@ bool Kernel<T>::operator==(const Kernel& other) const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       if (kernel_[i * width_ + j] != other.kernel_[i * other.width_ + j]) {
-        std::cerr << "Kernel mismatch at (" << i << ", " << j
-                  << "): " << kernel_[i * width_ + j]
-                  << " != " << other.kernel_[i * other.width_ + j] << std::endl;
+        // std::cerr << "Kernel mismatch at (" << i << ", " << j
+        //           << "): " << kernel_[i * width_ + j]
+        //           << " != " << other.kernel_[i * other.width_ + j] <<
+        //           std::endl;
         return false;
       }
     }

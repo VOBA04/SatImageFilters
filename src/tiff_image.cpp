@@ -1,6 +1,7 @@
 #include "tiff_image.h"
 #include <tiff.h>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -76,9 +77,11 @@ void TIFFImage::Open(const char* name) noexcept(false) {
   TIFFGetField(tif_, TIFFTAG_PLANARCONFIG, &config_);
   if (TIFFGetField(tif_, TIFFTAG_PHOTOMETRIC, &photo_metric_) != 1) {
     photo_metric_enabled_ = false;
+    photo_metric_ = PHOTOMETRIC_MINISBLACK;
   }
   if (TIFFGetField(tif_, TIFFTAG_RESOLUTIONUNIT, &resolution_unit_) != 1) {
     resolution_unit_enabled_ = false;
+    resolution_unit_ = RESUNIT_NONE;
   }
   if (TIFFGetField(tif_, TIFFTAG_XRESOLUTION, &resolution_x_) == 0) {
     resolution_x_ = -1;
@@ -113,32 +116,31 @@ void TIFFImage::Close() {
 }
 
 void TIFFImage::Save(const char* name) {
-  tif_ = TIFFOpen(name, "w");
-  if (tif_ == nullptr) {
+  TIFF* tif = TIFFOpen(name, "w");
+  if (tif == nullptr) {
     throw std::runtime_error("Невозможно создать файл");
   }
-  TIFFSetField(tif_, TIFFTAG_IMAGEWIDTH, width_);
-  TIFFSetField(tif_, TIFFTAG_IMAGELENGTH, height_);
-  TIFFSetField(tif_, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel_);
-  TIFFSetField(tif_, TIFFTAG_BITSPERSAMPLE, bits_per_sample_);
-  TIFFSetField(tif_, TIFFTAG_PLANARCONFIG, config_);
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width_);
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height_);
+  TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel_);
+  TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bits_per_sample_);
+  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, config_);
   if (photo_metric_enabled_) {
-    TIFFSetField(tif_, TIFFTAG_PHOTOMETRIC, photo_metric_);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, photo_metric_);
   }
   if (resolution_unit_enabled_) {
-    TIFFSetField(tif_, TIFFTAG_RESOLUTIONUNIT, resolution_unit_);
+    TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, resolution_unit_);
   }
   if (resolution_x_ != -1) {
-    TIFFSetField(tif_, TIFFTAG_XRESOLUTION, resolution_x_);
+    TIFFSetField(tif, TIFFTAG_XRESOLUTION, resolution_x_);
   }
   if (resolution_y_ != -1) {
-    TIFFSetField(tif_, TIFFTAG_YRESOLUTION, resolution_y_);
+    TIFFSetField(tif, TIFFTAG_YRESOLUTION, resolution_y_);
   }
   for (size_t i = 0; i < height_; i++) {
-    TIFFWriteScanline(tif_, &image_[i * width_], i);
+    TIFFWriteScanline(tif, &image_[i * width_], i);
   }
-  TIFFClose(tif_);
-  tif_ = nullptr;
+  TIFFClose(tif);
 }
 
 void TIFFImage::Save(const std::string& name) {
@@ -246,6 +248,9 @@ bool TIFFImage::operator==(const TIFFImage& other) const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       if (image_[i * width_ + j] != other.image_[i * width_ + j]) {
+        // std::cerr << "Images differ at (" << i << ", " << j
+        //           << "): " << image_[i * width_ + j] << " vs "
+        //           << other.image_[i * width_ + j] << std::endl;
         return false;
       }
     }
@@ -382,7 +387,8 @@ TIFFImage TIFFImage::GaussianBlur(const size_t size, const float sigma) const {
           sum += kernel.Get(l + radius, k + radius) * Get(j + l, i + k);
         }
       }
-      result.image_[i * width_ + j] = static_cast<uint16_t>(sum);
+      result.image_[i * width_ + j] =
+          static_cast<uint16_t>(std::clamp(std::round(sum), 0.0f, 65535.0f));
     }
   }
   return result;
@@ -410,7 +416,8 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
         sum += kernel.Get(k + radius, 0) *
                temp[i * width_ + std::clamp((int)j + k, 0, (int)width_ - 1)];
       }
-      result.image_[i * width_ + j] = static_cast<uint16_t>(sum);
+      result.image_[i * width_ + j] =
+          static_cast<uint16_t>(std::clamp(std::round(sum), 0.0f, 65535.0f));
     }
   }
   delete[] temp;

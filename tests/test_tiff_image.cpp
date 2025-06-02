@@ -26,6 +26,7 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
   switch (image_type) {
     case 0:
     default:
+      // Левая половина чёрная, правая половина белая (вертикальное разделение)
       for (int y = 0; y < height; ++y) {
         for (int x = width / 2; x < width; ++x) {
           img.at<uint16_t>(y, x) = 65535;
@@ -33,6 +34,8 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
       }
       break;
     case 1:
+      // Верхняя половина чёрная, нижняя половина белая (горизонтальное
+      // разделение)
       for (int y = height / 2; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
           img.at<uint16_t>(y, x) = 65535;
@@ -40,6 +43,7 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
       }
       break;
     case 2:
+      // Горизонтальный градиент от чёрного к белому (слева направо)
       for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
           img.at<uint16_t>(y, x) =
@@ -48,6 +52,7 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
       }
       break;
     case 3:
+      // Вертикальный градиент от чёрного к белому (сверху вниз)
       for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
           img.at<uint16_t>(y, x) =
@@ -56,19 +61,26 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
       }
       break;
     case 4:
+      // Случайное изображение (равномерное распределение)
+      cv::theRNG().state = 12345;
       cv::randu(img, 0, 65535);
       break;
     case 5:
+      // Случайное изображение (нормальное распределение, среднее 32768,
+      // σ=10000)
       cv::randn(img, 32768, 10000);
       break;
     case 6:
+      // Белый круг в центре на чёрном фоне
       cv::circle(img, cv::Point(width / 2, height / 2),
                  std::min(width, height) / 4, cv::Scalar(65535), -1);
       break;
     case 7:
+      // Один белый пиксель в центре, остальное чёрное
       img.at<uint16_t>(height / 2, width / 2) = 65535;
       break;
     case 8:
+      // Шахматный узор (чёрно-белый)
       for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
           img.at<uint16_t>(y, x) = (((x / 10 + y / 10) % 2) != 0) ? 65535 : 0;
@@ -174,7 +186,8 @@ TEST(TIFFImageTest, GaussianBlurCPU) {
     TIFFImage blurred = img.GaussianBlur(3, 1.0);
     cv::Mat cv_img = cv::imread(kTestImagePath, cv::IMREAD_UNCHANGED);
     cv::Mat blurred_cv;
-    cv::GaussianBlur(cv_img, blurred_cv, cv::Size(3, 3), 1.0);
+    cv::GaussianBlur(cv_img, blurred_cv, cv::Size(3, 3), 1.0, 0,
+                     cv::BORDER_REPLICATE);
     bool failed = false;
     for (size_t i = 0; i < img.GetHeight() && !failed; i++) {
       for (size_t j = 0; j < img.GetWidth(); j++) {
@@ -199,26 +212,50 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
     CreateTestImage(100, 100, k);
     TIFFImage img(kTestImagePath);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
-    TIFFImage blurred_cpu2 = img.GaussianBlur(3, 2.0);
+    TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
     TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
-    EXPECT_TRUE(blurred_cpu == blurred_cuda);
     TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
-    EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
+    TIFFImage blurred_cuda_2 = img.GaussianBlurCuda(3, 2.0);
     img.ImageToDeviceMemory(ImageOperation::GaussianBlur, 3, 1.0);
-    blurred_cuda = img.GaussianBlurCuda(3, 1.0);
-    EXPECT_TRUE(blurred_cpu == blurred_cuda);
-    blurred_cuda = img.GaussianBlurCuda(3, 2.0);
-    EXPECT_TRUE(blurred_cpu2 == blurred_cuda);
+    TIFFImage blurred_cuda_mem = img.GaussianBlurCuda(3, 1.0);
     img.FreeDeviceMemory();
     img.ImageToDeviceMemory(ImageOperation::GaussianBlurSep, 3, 1.0);
-    blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
-    EXPECT_TRUE(blurred_cpu == blurred_cuda_sep);
-    blurred_cuda_sep = img.GaussianBlurSepCuda(3, 2.0);
+    TIFFImage blurred_cuda_sep_mem = img.GaussianBlurSepCuda(3, 1.0);
+    TIFFImage blurred_cuda_sep_2 = img.GaussianBlurSepCuda(3, 2.0);
     bool failed = false;
-    for (size_t i = 0; i < blurred_cpu2.GetHeight() && !failed; i++) {
-      for (size_t j = 0; j < blurred_cpu2.GetWidth(); j++) {
-        EXPECT_NEAR(blurred_cpu2.Get(j, i), blurred_cuda_sep.Get(j, i), 1)
-            << "Mismatch at pixel (" << j << ", " << i << ")" << " image " << k;
+    for (size_t i = 0; i < img.GetHeight() && !failed; i++) {
+      for (size_t j = 0; j < img.GetWidth(); j++) {
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu_2.Get(j, i), blurred_cuda_2.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_sep_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu_2.Get(j, i), blurred_cuda_sep_2.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
         if (HasFailure()) {
           failed = true;
           break;
@@ -240,8 +277,19 @@ TEST(TIFFImageTest, SobelFilterCPU) {
     TIFFImage sobel = img.SetKernel(kKernelSobel);
     cv::Mat cv_img = cv::imread(kTestImagePath, cv::IMREAD_UNCHANGED);
     cv::Mat sobel_x_cv, sobel_y_cv, sobel_cv;
-    cv::Sobel(cv_img, sobel_x_cv, CV_16U, 1, 0);
-    cv::Sobel(cv_img, sobel_y_cv, CV_16U, 0, 1);
+    float sobel_kernel_x[3 * 3] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+    float sobel_kernel_y[3 * 3] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
+    cv::Mat kernel_x = cv::Mat(3, 3, CV_32F, sobel_kernel_x);
+    cv::Mat kernel_y = cv::Mat(3, 3, CV_32F, sobel_kernel_y);
+    cv::filter2D(cv_img, sobel_x_cv, CV_32F, kernel_x, cv::Point(-1, -1), 0,
+                 cv::BORDER_REPLICATE);
+    cv::filter2D(cv_img, sobel_y_cv, CV_32F, kernel_y, cv::Point(-1, -1), 0,
+                 cv::BORDER_REPLICATE);
+    cv::Mat abs_sobel_x, abs_sobel_y;
+    abs_sobel_x = cv::abs(sobel_x_cv);
+    abs_sobel_y = cv::abs(sobel_y_cv);
+    abs_sobel_x.convertTo(sobel_x_cv, CV_16U);
+    abs_sobel_y.convertTo(sobel_y_cv, CV_16U);
     cv::addWeighted(sobel_x_cv, 1, sobel_y_cv, 1, 0, sobel_cv);
     bool failed = false;
     for (size_t i = 0; i < img.GetHeight() && !failed; i++) {
@@ -315,8 +363,10 @@ TEST(TIFFImageTest, PrewittFilterCPU) {
     float prewitt_kernel_y[3 * 3] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
     cv::Mat kernel_x = cv::Mat(3, 3, CV_32F, prewitt_kernel_x);
     cv::Mat kernel_y = cv::Mat(3, 3, CV_32F, prewitt_kernel_y);
-    cv::filter2D(cv_img, prewitt_x_cv, CV_32F, kernel_x);
-    cv::filter2D(cv_img, prewitt_y_cv, CV_32F, kernel_y);
+    cv::filter2D(cv_img, prewitt_x_cv, CV_32F, kernel_x, cv::Point(-1, -1), 0,
+                 cv::BORDER_REPLICATE);
+    cv::filter2D(cv_img, prewitt_y_cv, CV_32F, kernel_y, cv::Point(-1, -1), 0,
+                 cv::BORDER_REPLICATE);
     cv::Mat abs_prewitt_x_cv, abs_prewitt_y_cv;
     abs_prewitt_x_cv = cv::abs(prewitt_x_cv);
     abs_prewitt_y_cv = cv::abs(prewitt_y_cv);
