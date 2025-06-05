@@ -13,14 +13,18 @@ set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
 set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_AUTOMOC ON)  
+set(CMAKE_AUTORCC ON)  
+set(CMAKE_AUTOUIC ON)
+
 add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 find_package(TIFF REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(GTest REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 enable_language(CUDA)
-enable_testing()
 
 add_test(NAME unit_tests COMMAND unit_tests)
 
@@ -35,12 +39,20 @@ if (NOT CUDAToolkit_FOUND)
 endif()
 if (NOT GTest_FOUND)
     message(FATAL_ERROR "GTest library not found")
+if (NOT Qt6_FOUND)
+    message(FATAL_ERROR "Qt5 not found")
+endif()
+
 endif()
 
 include_directories(${SOURCE_DIR})
 include_directories(${INCLUDE_DIR})
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 include_directories(${GTEST_INCLUDE_DIRS})
+
+if(CMAKE_AUTOUIC)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
 
 file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
 list(REMOVE_ITEM SOURCES "${SOURCE_DIR}/speedtest.cpp")
@@ -65,6 +77,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES})
 target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES})
 target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main pthread ${OpenCV_LIBRARIES})
+target_link_libraries(gui TIFF::TIFF ${CUDA_LIBRARIES} Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -90,4 +103,3 @@ add_custom_target(coverage
 message(STATUS "TIFF_INCLUDE_DIRS: ${TIFF_INCLUDE_DIRS}")
 message(STATUS "TIFF_LIBRARIES: ${TIFF_LIBRARIES}")
 message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
-

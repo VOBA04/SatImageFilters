@@ -12,9 +12,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <qimage.h>
 #include <tiff.h>
 #include <tiffio.h>
 #include "image_operation.h"
+#include <QImage>
 
 /**
  * @brief Класс для работы с TIFF изображением.
@@ -212,6 +214,9 @@ class TIFFImage {
   void Set(const size_t x, const size_t y,
            const uint16_t value) noexcept(false);
 
+  void SetImage(const size_t width, const size_t height,
+                const uint16_t* image) noexcept(false);
+
   /**
    * @brief Копирует поля из другого объекта TIFFImage.
    *
@@ -221,7 +226,30 @@ class TIFFImage {
 
   void CopyImageToDevice();
 
+  /**
+   * @brief Копирует указатели на память устройства из другого объекта
+   * TIFFImage.
+   *
+   * Эта функция копирует указатели на память устройства, такие как указатели
+   * на исходное изображение, результирующее изображение и промежуточные данные,
+   * из другого объекта TIFFImage. Она используется для совместного
+   * использования памяти устройства между объектами.
+   *
+   * @param other Исходный объект TIFFImage для копирования указателей.
+   */
   void CopyDeviceMemPointers(const TIFFImage& other);
+
+  /**
+   * @brief Копирует изображение в память устройства.
+   *
+   * Эта функция загружает текущее изображение в память устройства для
+   * последующей обработки с использованием GPU. Она выделяет память на
+   * устройстве и копирует данные изображения.
+   *
+   * @throws std::runtime_error Если не удается выделить память на устройстве
+   * или изображение не загружено.
+   */
+  void CopyImageToDevice();
 
   /**
    * @brief Оператор сравнения.
@@ -405,4 +433,16 @@ class TIFFImage {
    * @return Новое изображение с примененным разделенным фильтром Гаусса.
    */
   TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
+
+  /**
+   * @brief Преобразует изображение в формат QImage.
+   *
+   * Эта функция создает объект QImage из текущего изображения, что позволяет
+   * использовать его в приложениях с графическим интерфейсом на основе Qt.
+   *
+   * @return Объект QImage, представляющий текущее изображение.
+   * @throws std::runtime_error Если изображение не загружено или преобразование
+   * невозможно.
+   */
+  QImage ToQImage() const;
 };
