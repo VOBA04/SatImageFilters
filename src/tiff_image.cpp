@@ -1,5 +1,4 @@
 #include "tiff_image.h"
-#include <qimage.h>
 #include <tiff.h>
 #include <algorithm>
 #include <cmath>
@@ -442,6 +441,7 @@ TIFFImage TIFFImage::GaussianBlurSep(const size_t size,
   return result;
 }
 
+#ifdef USE_QT
 QImage TIFFImage::ToQImage() const {
   QImage image(width_, height_, QImage::Format_Grayscale16);
   for (size_t y = 0; y < height_; ++y) {
@@ -451,3 +451,4 @@ QImage TIFFImage::ToQImage() const {
   }
   return image;
 }
+#endif

@@ -12,11 +12,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <qimage.h>
 #include <tiff.h>
 #include <tiffio.h>
 #include "image_operation.h"
+
+#ifdef USE_QT
+#include <qimage.h>
 #include <QImage>
+#endif
 
 /**
  * @brief Класс для работы с TIFF изображением.
@@ -223,8 +226,6 @@ class TIFFImage {
    * @param other Исходный объект TIFFImage для копирования.
    */
   void CopyFields(const TIFFImage& other);
-
-  void CopyImageToDevice();
 
   /**
    * @brief Копирует указатели на память устройства из другого объекта
@@ -434,6 +435,7 @@ class TIFFImage {
    */
   TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
 
+#ifdef USE_QT
   /**
    * @brief Преобразует изображение в формат QImage.
    *
@@ -445,4 +447,5 @@ class TIFFImage {
    * невозможно.
    */
   QImage ToQImage() const;
+#endif
 };
