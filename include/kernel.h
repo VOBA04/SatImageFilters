@@ -13,6 +13,7 @@
 #include <cstring>
 #include <exception>
 #include <initializer_list>
+#include <iostream>
 #include <string>
 #include <cmath>
 #include <fstream>
@@ -93,8 +94,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  Kernel(const size_t height, const size_t width, const T** kernel,
-         bool rotatable);
+  Kernel(const size_t height, const size_t width, T** kernel, bool rotatable);
 
   /**
    * @brief Конструктор с параметрами.
@@ -109,8 +109,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  Kernel(const size_t height, const size_t width, const T* kernel,
-         bool rotatable);
+  Kernel(const size_t height, const size_t width, T* kernel, bool rotatable);
 
   /**
    * @brief Конструктор с инициализатором списка.
@@ -168,8 +167,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  void Set(const size_t height, const size_t width, const T** kernel,
-           bool rotatable);
+  void Set(const size_t height, const size_t width, T** kernel, bool rotatable);
 
   /**
    * @brief Устанавливает новое ядро.
@@ -183,8 +181,7 @@ class Kernel {
    * @throws KernelException Если высота или ширина четные, либо передан
    * нулевой указатель.
    */
-  void Set(const size_t height, const size_t width, const T* kernel,
-           bool rotatable);
+  void Set(const size_t height, const size_t width, T* kernel, bool rotatable);
 
   /**
    * @brief Оператор присваивания.
@@ -336,7 +333,7 @@ Kernel<T>::Kernel()
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t height, const size_t width, const T** kernel,
+Kernel<T>::Kernel(const size_t height, const size_t width, T** kernel,
                   bool rotatable)
     : height_{height},
       width_{width},
@@ -348,19 +345,23 @@ Kernel<T>::Kernel(const size_t height, const size_t width, const T** kernel,
   if (kernel == nullptr) {
     throw KernelException("Передан нулевой указатель на ядро");
   }
-  kernel_ = new T[height * width];
   for (size_t i = 0; i < height; i++) {
     for (size_t j = 0; j < width; j++) {
       if (kernel[i] == nullptr) {
         throw KernelException("Передан нулевой указатель на строку ядра");
       }
+    }
+  }
+  kernel_ = new T[height * width];
+  for (size_t i = 0; i < height; i++) {
+    for (size_t j = 0; j < width; j++) {
       kernel_[i * width + j] = kernel[i][j];
     }
   }
 }
 
 template <typename T>
-Kernel<T>::Kernel(const size_t height, const size_t width, const T* kernel,
+Kernel<T>::Kernel(const size_t height, const size_t width, T* kernel,
                   bool rotatable)
     : height_{height},
       width_{width},
@@ -432,11 +433,12 @@ template <typename T>
 Kernel<T>::~Kernel() {
   if (kernel_ != nullptr) {
     delete[] kernel_;
+    kernel_ = nullptr;
   }
 }
 
 template <typename T>
-void Kernel<T>::Set(const size_t height, const size_t width, const T** kernel,
+void Kernel<T>::Set(const size_t height, const size_t width, T** kernel,
                     bool rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
@@ -461,7 +463,7 @@ void Kernel<T>::Set(const size_t height, const size_t width, const T** kernel,
 }
 
 template <typename T>
-void Kernel<T>::Set(const size_t height, const size_t width, const T* kernel,
+void Kernel<T>::Set(const size_t height, const size_t width, T* kernel,
                     bool rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
@@ -497,9 +499,15 @@ bool Kernel<T>::operator==(const Kernel& other) const {
   if (height_ != other.height_ || width_ != other.width_) {
     return false;
   }
-  for (size_t i = 0; i < height_ * width_; i++) {
-    if (kernel_[i] != other.kernel_[i]) {
-      return false;
+  for (size_t i = 0; i < height_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      if (kernel_[i * width_ + j] != other.kernel_[i * other.width_ + j]) {
+        // std::cerr << "Kernel mismatch at (" << i << ", " << j
+        //           << "): " << kernel_[i * width_ + j]
+        //           << " != " << other.kernel_[i * other.width_ + j] <<
+        //           std::endl;
+        return false;
+      }
     }
   }
   return true;
@@ -585,9 +593,10 @@ Kernel<T> Kernel<T>::GetGaussianKernel(const size_t size, float sigma) {
   Kernel<T> gaussian_kernel(size, size, false);
   int half = size / 2;
   T sum = 0.0;
-  if (sigma == 0) {
-    sigma = size / 6.0;
-    // T sigma = size * 0.15 + 0.35;
+  if (sigma <= 0) {
+    sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8;
+    // sigma = size / 6.0;
+    //  T sigma = size * 0.15 + 0.35;
   }
   for (int i = -half; i <= half; i++) {
     for (int j = -half; j <= half; j++) {
@@ -614,9 +623,10 @@ Kernel<T> Kernel<T>::GetGaussianKernelSep(const size_t size, float sigma) {
   Kernel<T> gaussian_kernel(size, 1, true);
   int half = size / 2;
   T sum = 0.0;
-  if (sigma == 0) {
-    sigma = size / 6.0;
-    // T sigma = size * 0.15 + 0.35;
+  if (sigma <= 0) {
+    sigma = 0.3 * ((size - 1) * 0.5 - 1) + 0.8;
+    // sigma = size / 6.0;
+    //  T sigma = size * 0.15 + 0.35;
   }
   for (int i = -half; i <= half; i++) {
     T g = exp(-i * i / (2 * sigma * sigma));
@@ -645,7 +655,9 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
   }
-  delete[] kernel_;
+  if (kernel_ != nullptr) {
+    delete[] kernel_;
+  }
   height_ = height;
   width_ = width;
   rotatable_ = rotate;

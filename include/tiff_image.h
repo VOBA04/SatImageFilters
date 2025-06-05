@@ -98,6 +98,12 @@ class TIFFImage {
    */
   explicit TIFFImage(std::string name) noexcept(false);
 
+  TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel = 1,
+            uint16_t bits_per_sample = 16,
+            uint16_t photo_metric = PHOTOMETRIC_MINISBLACK,
+            uint16_t resolution_unit = RESUNIT_NONE,
+            uint16_t config = PLANARCONFIG_CONTIG);
+
   /**
    * @brief Конструктор копирования.
    *

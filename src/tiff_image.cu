@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -61,7 +62,7 @@ __global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
           g_y += src[y * width + x] * kernel[(ksize - 1 - l) * ksize + k];
         }
       }
-      dst[i * width + j] = abs(g_x) + abs(g_y);
+      dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
     } else {
       int g = 0;
       for (int k = 0; k < ksize; k++) {
@@ -73,7 +74,7 @@ __global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
           g += src[y * width + x] * kernel[k * ksize + l];
         }
       }
-      dst[i * width + j] = g;
+      dst[i * width + j] = Clamp(g, 0, 65535);
     }
   }
 }
@@ -102,7 +103,7 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
         g_y += src[y * width + x] * d_kernel_sobel[(3 - 1 - l) * 3 + k];
       }
     }
-    dst[i * width + j] = abs(g_x) + abs(g_y);
+    dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
   }
 }
 
@@ -156,11 +157,9 @@ __global__ void CudaSetPrewittKernel(uint16_t* src, uint16_t* dst,
         y = Clamp(y, 0, height - 1);
         g_x += src[y * width + x] * d_kernel_prewitt[k * 3 + l];
         g_y += src[y * width + x] * d_kernel_prewitt[(3 - 1 - l) * 3 + k];
-        // if (x >= 0 && x < width && y >= 0 && y < height) {
-        // }
       }
     }
-    dst[i * width + j] = abs(g_x) + abs(g_y);
+    dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
   }
 }
 
@@ -237,7 +236,7 @@ __global__ void CudaAddAbsMtx(int* mtx1, int* mtx2, uint16_t* result,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     int sum = abs(mtx1[i * width + j]) + abs(mtx2[i * width + j]);
-    result[i * width + j] = static_cast<uint16_t>((sum > 65535 ? 65535 : sum));
+    result[i * width + j] = static_cast<uint16_t>(Clamp(sum, 0, 65535));
   }
 }
 
@@ -266,7 +265,7 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
         sum += src[y * width + x] * kernel[k * ksize + l];
       }
     }
-    dst[i * width + j] = static_cast<uint16_t>(sum);
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(round(sum), 0, 65535));
   }
 }
 
@@ -321,7 +320,7 @@ __global__ void CudaGaussianBlurSepVertical(float* src, uint16_t* dst,
       y = Clamp(y, 0, height - 1);
       sum += src[y * width + j] * kernel[k];
     }
-    dst[i * width + j] = static_cast<uint16_t>(sum);
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(round(sum), 0, 65535));
   }
 }
 

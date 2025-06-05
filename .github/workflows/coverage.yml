@@ -1,0 +1,62 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libgtest-dev libtiff-dev libopencv-dev lcov
+          sudo apt-get install -y nvidia-cuda-toolkit
+          sudo apt-get install -y g++-12
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-12 100
+
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Debug ..
+      
+      - name: Build and run tests
+        run: |
+          cd build
+          make coverage
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage_report/
+          if-no-files-found: warn
+      
+      - name: Extract coverage percentage
+        run: |
+          COVERAGE=$(lcov --summary build/coverage.info --ignore-errors empty,version | grep -Po 'lines.*: \K[0-9.]+%')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+          echo "Coverage: $COVERAGE"
+      
+      - name: Create coverage badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: coverage.json
+          label: Coverage
+          message: ${{ env.COVERAGE }}
+          color: ${{ env.COVERAGE < '50' && 'red' || env.COVERAGE < '90' && 'yellow' || 'green' }}
+          namedLogo: jest

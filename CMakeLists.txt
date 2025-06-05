@@ -10,7 +10,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets")
 set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
-set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 87 89 90)
+set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_AUTOMOC ON)  
@@ -23,39 +23,83 @@ find_package(TIFF REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 find_package(OpenCV REQUIRED)
-
+find_package(GTest REQUIRED)
 enable_language(CUDA)
+
+add_test(NAME unit_tests COMMAND unit_tests)
 
 if (NOT TIFF_FOUND)
     message(FATAL_ERROR "LibTIFF library not found")
 endif()
 if (NOT Qt6_FOUND)
-    message(FATAL_ERROR "Библиотека Qt6 не найдена")
+    message(FATAL_ERROR "Qt6 not found")
 endif()
 if (NOT OpenCV_FOUND)
-    message(FATAL_ERROR "Библиотека OpenCV не найдена")
+    message(FATAL_ERROR "OpenCV library not found")
+endif()
+if (NOT CUDAToolkit_FOUND)
+    message(FATAL_ERROR "CUDA library not found")
+endif()
+if (NOT GTest_FOUND)
+    message(FATAL_ERROR "GTest library not found")
 endif()
 
 include_directories(${SOURCE_DIR})
 include_directories(${INCLUDE_DIR})
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 include_directories(${OpenCV_INCLUDE_DIRS})
-
-file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.cuh")
-file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${SOURCE_DIR}/*.ui")
-
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-
-target_link_libraries(${PROJECT_NAME} TIFF::TIFF CUDA::cudart Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
-
-set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+include_directories(${GTEST_INCLUDE_DIRS})
 
 if(CMAKE_AUTOUIC)
     target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
+file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
+list(REMOVE_ITEM SOURCES "${SOURCE_DIR}/speedtest.cpp")
+file(GLOB_RECURSE SPEEDTEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
+list(REMOVE_ITEM SPEEDTEST_SOURCES "${SOURCE_DIR}/main.cpp")
+file(GLOB_RECURSE TEST_SOURCES "${TESTS_DIR}/*.cpp" "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
+list(REMOVE_ITEM TEST_SOURCES "${SOURCE_DIR}/main.cpp")
+list(REMOVE_ITEM TEST_SOURCES "${SOURCE_DIR}/speedtest.cpp") 
+
+add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(speedtest ${SPEEDTEST_SOURCES})
+add_executable(unit_tests ${TEST_SOURCES})
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    target_compile_options(unit_tests PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
+        $<$<COMPILE_LANGUAGE:CUDA>:--generate-line-info;-Xcompiler;--coverage;-Xcompiler;-fprofile-arcs;-Xcompiler;-ftest-coverage>
+    )
+    target_link_options(unit_tests PRIVATE --coverage)
+endif()
+
+target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES})
+target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES})
+target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main pthread ${OpenCV_LIBRARIES})
+target_link_libraries(gui TIFF::TIFF CUDA::cudart Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
+
+set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+if(DEFINED ENV{GITHUB_ACTIONS})
+    set(EXCLUDE_CUDA "*/src/*.cu")
+else()
+    set(EXCLUDE_CUDA "")
+endif()
+
+add_custom_target(coverage
+    COMMAND lcov --zerocounters --directory .
+    COMMAND ${CMAKE_COMMAND} --build . --target unit_tests
+    COMMAND ctest -C Debug -R ^unit_tests$
+    COMMAND geninfo ${CMAKE_BINARY_DIR} --base-directory ${CMAKE_SOURCE_DIR} --output-filename coverage.info --ignore-errors source,gcov,mismatch,version --rc geninfo_unexecuted_blocks=1
+    COMMAND lcov --ignore-errors unused,source,empty,mismatch,version --remove coverage.info '/usr/*' '*/tests/*' '*/OpenCV/*' '/tmp/*' ${EXCLUDE_CUDA} --output-file coverage.info
+    COMMAND genhtml coverage.info --output-directory coverage_report --ignore-errors empty || true
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Generating code coverage report"
+    DEPENDS unit_tests
+)
+
 message(STATUS "TIFF_INCLUDE_DIRS: ${TIFF_INCLUDE_DIRS}")
 message(STATUS "TIFF_LIBRARIES: ${TIFF_LIBRARIES}")
 message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
-message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
-message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
