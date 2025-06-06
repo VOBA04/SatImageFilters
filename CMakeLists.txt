@@ -6,12 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # -fsanitize=address Санитайзер мешает cuda
 if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /EHsc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W2 /EHsc")
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g  -Wall -Wextra -pedantic")
 endif()
 if(MSVC)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler /W3,/EHsc -Wno-deprecated-gpu-targets")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler /W2,/EHsc -Wno-deprecated-gpu-targets")
 else()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets")
 endif()
@@ -84,17 +84,19 @@ add_executable(unit_tests ${TEST_SOURCES})
 
 add_test(NAME unit_tests COMMAND unit_tests)
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_options(unit_tests PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
-        $<$<COMPILE_LANGUAGE:CUDA>:--generate-line-info;-Xcompiler;--coverage;-Xcompiler;-fprofile-arcs;-Xcompiler;-ftest-coverage>
-    )
-    target_link_options(unit_tests PRIVATE --coverage)
+if(NOT MSVC)
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+        target_compile_options(unit_tests PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
+            $<$<COMPILE_LANGUAGE:CUDA>:--generate-line-info;-Xcompiler;--coverage;-Xcompiler;-fprofile-arcs;-Xcompiler;-ftest-coverage>
+        )
+        target_link_options(unit_tests PRIVATE --coverage)
+    endif()
 endif()
 
 target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
 target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES} cudart)
-target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main pthread ${OpenCV_LIBRARIES})
+target_link_libraries(unit_tests PRIVATE TIFF::TIFF ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${OpenCV_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -117,7 +119,20 @@ add_custom_target(coverage
     COMMENT "Generating code coverage report"
     DEPENDS unit_tests
 )
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+add_custom_command(TARGET speedtest POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
+    $<TARGET_FILE_DIR:speedtest>)
+add_custom_command(TARGET unit_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
+    $<TARGET_FILE_DIR:unit_tests>)
 
 message(STATUS "TIFF_INCLUDE_DIRS: ${TIFF_INCLUDE_DIRS}")
 message(STATUS "TIFF_LIBRARIES: ${TIFF_LIBRARIES}")
 message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+message(STATUS "GTEST_INCLUDE_DIR: ${GTEST_INCLUDE_DIR}")
