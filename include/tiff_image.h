@@ -105,8 +105,8 @@ class TIFFImage {
   TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel = 1,
             uint16_t bits_per_sample = 16,
             uint16_t photo_metric = PHOTOMETRIC_MINISBLACK,
-            uint16_t resolution_unit = RESUNIT_NONE,
-            uint16_t config = PLANARCONFIG_CONTIG);
+            uint16_t resolution_unit = RESUNIT_NONE, float resolution_x = 0,
+            float resolution_y = 0, uint16_t config = PLANARCONFIG_CONTIG);
 
   /**
    * @brief Конструктор копирования.

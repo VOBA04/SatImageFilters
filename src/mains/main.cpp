@@ -5,10 +5,13 @@
 #include "tiff_image.h"
 #include <stdexcept>
 #include <string>
+#include <windows.h>
 
 namespace fs = std::filesystem;
 
 int main() {
+  SetConsoleOutputCP(65001);
+  SetConsoleCP(65001);
   fs::path project_source_dir(PROJECT_SOURCE_DIR);
   if (!fs::exists(project_source_dir / "images")) {
     fs::create_directory(project_source_dir / "images");
@@ -17,7 +20,7 @@ int main() {
     fs::create_directory(project_source_dir / "images/sobel");
     fs::create_directory(project_source_dir / "images/gaussian");
     std::cout << "Поместите исходные изображения в "
-              << project_source_dir / "images/original" << std::endl;
+              << project_source_dir / "images" / "original " << std::endl;
     return 0;
   }
   fs::path original_images_dir(project_source_dir / "images/original");
@@ -27,7 +30,7 @@ int main() {
   fs::path kernel_path(project_source_dir / "kernel.txt");
   fs::path arbitrary_kernel_dir(project_source_dir / "images/arbitrary_kernel");
   if (!fs::exists(original_images_dir)) {
-    fs::create_directory(project_source_dir / "images/original");
+    fs::create_directory(project_source_dir / "images " / "original");
     std::cerr << "Каталог с оригинальными изображениями отсутствует. Поместите "
                  "исходные изображения в "
               << original_images_dir << std::endl;

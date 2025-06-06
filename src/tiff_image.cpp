@@ -40,13 +40,16 @@ TIFFImage::TIFFImage(const std::string name) noexcept(false) {
 
 TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
                      uint16_t bits_per_sample, uint16_t photo_metric,
-                     uint16_t resolution_unit, uint16_t config)
+                     uint16_t resolution_unit, float resolution_x,
+                     float resolution_y, uint16_t config)
     : width_(width),
       height_(height),
       samples_per_pixel_(samples_per_pixel),
       bits_per_sample_(bits_per_sample),
       photo_metric_(photo_metric),
       resolution_unit_(resolution_unit),
+      resolution_x_(resolution_x),
+      resolution_y_(resolution_y),
       config_(config) {
   image_ = new uint16_t[width_ * height_];
 }
