@@ -92,8 +92,8 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_link_options(unit_tests PRIVATE --coverage)
 endif()
 
-target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES})
-target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
+target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES} cudart)
 target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main pthread ${OpenCV_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

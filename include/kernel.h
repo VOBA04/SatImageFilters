@@ -17,6 +17,7 @@
 #include <string>
 #include <cmath>
 #include <fstream>
+#include <filesystem>
 
 /**
  * @brief Класс исключений, связанных с @ref Kernel "Kernel".
@@ -322,6 +323,18 @@ class Kernel {
    * чтения.
    */
   void SetFromFile(const std::string& filename);
+
+  /**
+   * @brief Устанавливает ядро из файла.
+   *
+   * Читает высоту, ширину, флаг вращения и значения ядра из файла и
+   * устанавливает их.
+   *
+   * @param filename Имя файла, содержащего параметры ядра.
+   * @throws KernelException Если не удалось открыть файл или произошла ошибка
+   * чтения.
+   */
+  void SetFromFile(const std::filesystem::path& filename);
 };
 
 template <typename T>
@@ -670,6 +683,11 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
     }
   }
   file.close();
+}
+
+template <typename T>
+inline void Kernel<T>::SetFromFile(const std::filesystem::path& filename) {
+  SetFromFile(filename.generic_string());
 }
 
 /**

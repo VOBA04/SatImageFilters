@@ -14,6 +14,7 @@
 #include <string>
 #include <tiff.h>
 #include <tiffio.h>
+#include <filesystem>
 #include "image_operation.h"
 
 #ifdef USE_QT
@@ -171,6 +172,16 @@ class TIFFImage {
    * @throws std::runtime_error Если не удается создать или записать файл.
    */
   void Save(const std::string& name);
+
+  /**
+   * @brief Сохраняет изображение в файл.
+   *
+   * Сохраняет текущее состояние изображения в указанный файл формата TIFF.
+   *
+   * @param name Имя файла.
+   * @throws std::runtime_error Если не удается создать или записать файл.
+   */
+  void Save(const std::filesystem::path& name);
 
   /**
    * @brief Очищает изображение.

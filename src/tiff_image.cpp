@@ -147,6 +147,10 @@ void TIFFImage::Save(const std::string& name) {
   Save(name.c_str());
 }
 
+void TIFFImage::Save(const std::filesystem::path& name) {
+  Save(name.c_str());
+}
+
 void TIFFImage::Clear() {
   if (image_ != nullptr) {
     delete[] image_;
