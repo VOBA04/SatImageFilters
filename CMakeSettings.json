@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "name": "x64-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "cmakeCommandArgs": "-DTIFF_INCLUDE_DIR=\"C:\\Program Files\\tiff-4.7.0\\libtiff\" -DTIFF_LIBRARY=\"C:\\Program Files\\tiff-4.7.0\\build\\libtiff\\Release\\tiff.lib\" -DOpenCV_DIR=\"C:\\Program Files\\opencv\\build\\x64\\vc16\\lib\" -DCMAKE_TOOLCHAIN_FILE=\"D:\\vcpkg\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake\"",
+      "ctestCommandArgs": ""
+    }
+  ]
+}
