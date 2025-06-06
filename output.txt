@@ -1,19 +1,285 @@
->------ Сборка запущено: проект: CMakeLists, конфигурация: Debug ------
-  [1/5] Building CXX object CMakeFiles\SatImageFilters.dir\src\tiff_image.cpp.obj
-  FAILED: CMakeFiles/SatImageFilters.dir/src/tiff_image.cpp.obj 
-  "C:\PROGRA~1\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe"  /nologo /TP -DPROJECT_SOURCE_DIR=\"D:/SatImageFilters\" -ID:\SatImageFilters\src -ID:\SatImageFilters\include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include" -external:I"C:\Program Files\tiff-4.7.0\libtiff" -external:W0 /DWIN32 /D_WINDOWS /EHsc /W4 /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /showIncludes /FoCMakeFiles\SatImageFilters.dir\src\tiff_image.cpp.obj /FdCMakeFiles\SatImageFilters.dir\ /FS -c D:\SatImageFilters\src\tiff_image.cpp
-C:\Program Files\tiff-4.7.0\libtiff\tiff.h(28): fatal error C1083: Не удается открыть файл включение: tiffconf.h: No such file or directory,
-  [2/5] Building CXX object CMakeFiles\SatImageFilters.dir\src\mains\main.cpp.obj
-  FAILED: CMakeFiles/SatImageFilters.dir/src/mains/main.cpp.obj 
-  "C:\PROGRA~1\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe"  /nologo /TP -DPROJECT_SOURCE_DIR=\"D:/SatImageFilters\" -ID:\SatImageFilters\src -ID:\SatImageFilters\include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include" -external:I"C:\Program Files\tiff-4.7.0\libtiff" -external:W0 /DWIN32 /D_WINDOWS /EHsc /W4 /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /showIncludes /FoCMakeFiles\SatImageFilters.dir\src\mains\main.cpp.obj /FdCMakeFiles\SatImageFilters.dir\ /FS -c D:\SatImageFilters\src\mains\main.cpp
-C:\Program Files\tiff-4.7.0\libtiff\tiff.h(28): fatal error C1083: Не удается открыть файл включение: tiffconf.h: No such file or directory,
-  [3/5] Building CUDA object CMakeFiles\SatImageFilters.dir\src\tiff_image.cu.obj
-  FAILED: CMakeFiles/SatImageFilters.dir/src/tiff_image.cu.obj 
-  "C:\PROGRA~1\NVIDIA GPU Computing Toolkit\CUDA\v12.8\bin\nvcc.exe" -forward-unknown-to-host-compiler -DPROJECT_SOURCE_DIR=\"D:/SatImageFilters\" -ID:\SatImageFilters\src -ID:\SatImageFilters\include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include" -isystem "C:\Program Files\tiff-4.7.0\libtiff" -D_WINDOWS -Xcompiler=" /EHsc" -Xcompiler /W4,/EHsc -Wno-deprecated-gpu-targets -Xcompiler=" -Zi -Ob0 -Od /RTC1" -std=c++17 "--generate-code=arch=compute_50,code=[compute_50,sm_50]" "--generate-code=arch=compute_52,code=[compute_52,sm_52]" "--generate-code=arch=compute_60,code=[compute_60,sm_60]" "--generate-code=arch=compute_61,code=[compute_61,sm_61]" "--generate-code=arch=compute_70,code=[compute_70,sm_70]" "--generate-code=arch=compute_72,code=[compute_72,sm_72]" "--generate-code=arch=compute_75,code=[compute_75,sm_75]" "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" -Xcompiler=-MDd -MD -MT CMakeFiles\SatImageFilters.dir\src\tiff_image.cu.obj -MF CMakeFiles\SatImageFilters.dir\src\tiff_image.cu.obj.d -x cu -rdc=true -c D:\SatImageFilters\src\tiff_image.cu -o CMakeFiles\SatImageFilters.dir\src\tiff_image.cu.obj -Xcompiler=-FdCMakeFiles\SatImageFilters.dir\,-FS
-C:\Program Files\tiff-4.7.0\libtiff\tiff.h(28): fatal error C1083: �� ������� ������� ���� ���������: tiffconf.h: No such file or directory,
+>------ Собрать все запущено: проект: SatImageFilters, конфигурация: x64-Debug ------
+  [0/1] Re-running CMake...
+  CMake Warning at D:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake:893 (_find_package):
+  -- TIFF_INCLUDE_DIRS: C:/Program Files/tiff-4.7.0/libtiff;C:/Program Files/tiff-4.7.0/build/libtiff
+  -- TIFF_LIBRARIES: C:\Program Files\tiff-4.7.0\build\libtiff\Release\tiff.lib
+  -- CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8/include
+  -- Configuring done (4.3s)
+    By not providing "FindQt6.cmake" in CMAKE_MODULE_PATH this project has
+    asked CMake to find a package configuration file provided by "Qt6", but
+    CMake did not find one.
   
+    Could not find a package configuration file provided by "Qt6" with any of
+    the following names:
+  
+      Qt6Config.cmake
+      qt6-config.cmake
+  
+    Add the installation prefix of "Qt6" to CMAKE_PREFIX_PATH or set "Qt6_DIR"
+    to a directory containing one of the above files.  If "Qt6" provides a
+    separate development package or SDK, be sure it has been installed.
+  Call Stack (most recent call first):
+    CMakeLists.txt:34 (find_package)
+  
+  
+  CMake Warning at CMakeLists.txt:56 (message):
+    Qt6 not found, GUI target will not be built
+  
+  
+  -- Generating done (0.0s)
+  -- Build files have been written to: D:/SatImageFilters/out/build/x64-Debug
+  [1/17] Building CXX object CMakeFiles\unit_tests.dir\tests\test_kernel.cpp.obj
+  FAILED: CMakeFiles/unit_tests.dir/tests/test_kernel.cpp.obj 
+  "C:\PROGRA~1\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe"  /nologo /TP -DPROJECT_SOURCE_DIR=\"D:/SatImageFilters\" -ID:\SatImageFilters\src -ID:\SatImageFilters\include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include" -external:I"C:\Program Files\tiff-4.7.0\libtiff" -external:I"C:\Program Files\tiff-4.7.0\build\libtiff" -external:I"C:\Program Files\opencv\build\include" -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd --coverage -fprofile-arcs -ftest-coverage /showIncludes /FoCMakeFiles\unit_tests.dir\tests\test_kernel.cpp.obj /FdCMakeFiles\unit_tests.dir\ /FS -c D:\SatImageFilters\tests\test_kernel.cpp
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+D:\SatImageFilters\tests\test_kernel.cpp(1): fatal error C1083: Не удается открыть файл включение: gtest/gtest.h: No such file or directory,
+  [2/17] Building CXX object CMakeFiles\unit_tests.dir\tests\test_tiff_image.cpp.obj
+  FAILED: CMakeFiles/unit_tests.dir/tests/test_tiff_image.cpp.obj 
+  "C:\PROGRA~1\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe"  /nologo /TP -DPROJECT_SOURCE_DIR=\"D:/SatImageFilters\" -ID:\SatImageFilters\src -ID:\SatImageFilters\include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include" -external:I"C:\Program Files\tiff-4.7.0\libtiff" -external:I"C:\Program Files\tiff-4.7.0\build\libtiff" -external:I"C:\Program Files\opencv\build\include" -external:W0 /DWIN32 /D_WINDOWS /EHsc /W3 /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd --coverage -fprofile-arcs -ftest-coverage /showIncludes /FoCMakeFiles\unit_tests.dir\tests\test_tiff_image.cpp.obj /FdCMakeFiles\unit_tests.dir\ /FS -c D:\SatImageFilters\tests\test_tiff_image.cpp
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+D:\SatImageFilters\tests\test_tiff_image.cpp(1): fatal error C1083: Не удается открыть файл включение: gtest/gtest.h: No such file or directory,
+  [3/17] Building CXX object CMakeFiles\unit_tests.dir\src\tiff_image.cpp.obj
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+D:\SatImageFilters\src\tiff_image.cpp(103): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(141): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(298): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(313): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(402): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(423): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::GaussianBlur"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(420): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::GaussianBlurSep"
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(152): warning C4717: TIFFImage::Save: рекурсия на всех путях выполнения, функция вызовет переполнение стека
+  [4/17] Building CXX object CMakeFiles\speedtest.dir\src\tiff_image.cpp.obj
+D:\SatImageFilters\src\tiff_image.cpp(103): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(141): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(298): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(313): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(402): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(423): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::GaussianBlur"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(420): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::GaussianBlurSep"
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(152): warning C4717: TIFFImage::Save: рекурсия на всех путях выполнения, функция вызовет переполнение стека
+  [5/17] Building CXX object CMakeFiles\SatImageFilters.dir\src\tiff_image.cpp.obj
+D:\SatImageFilters\src\tiff_image.cpp(103): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(141): warning C4267: аргумент: преобразование из "size_t" в "uint32_t"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(298): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(304): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(305): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(313): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(319): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(337): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(338): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(372): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(373): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(402): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(408): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(423): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(428): warning C4267: аргумент: преобразование из "size_t" в "const int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(400): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::GaussianBlur"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cpp(420): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::GaussianBlurSep"
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cpp(152): warning C4717: TIFFImage::Save: рекурсия на всех путях выполнения, функция вызовет переполнение стека
+  [6/17] Building CXX object CMakeFiles\SatImageFilters.dir\src\mains\main.cpp.obj
+  [7/17] Building CXX object CMakeFiles\speedtest.dir\src\mains\speedtest.cpp.obj
+  [8/17] Building CUDA object CMakeFiles\speedtest.dir\src\tiff_image.cu.obj
   tiff_image.cu
+  tmpxft_0000021c_00000000-7_tiff_image.compute_86.cudafe1.cpp
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cu(393): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cu(393): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::ImageToDeviceMemory"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cu(409): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::ImageToDeviceMemory"
+  
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+  
+  [9/17] Building CUDA object CMakeFiles\SatImageFilters.dir\src\tiff_image.cu.obj
+  tiff_image.cu
+  tmpxft_00003780_00000000-7_tiff_image.compute_86.cudafe1.cpp
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cu(393): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cu(393): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::ImageToDeviceMemory"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cu(409): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::ImageToDeviceMemory"
+  
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+  
+  [10/17] Building CUDA object CMakeFiles\unit_tests.dir\src\tiff_image.cu.obj
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tiff_image.cu
+  tiff_image.cu
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "--coverage"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-fprofile-arcs"
+D:\SatImageFilters\out\build\x64-Debug\cl : командная строка warning D9002: пропуск неизвестного параметра "-ftest-coverage"
+  tmpxft_000034a8_00000000-7_tiff_image.compute_86.cudafe1.cpp
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(493): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(563): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(624): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(702): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\src\tiff_image.cu(775): warning C4267: аргумент: преобразование из "size_t" в "unsigned int"; возможна потеря данных
+D:\SatImageFilters\include\kernel.h(607): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(607): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\src\tiff_image.cu(393): note: выполняется компиляция ссылки на экземпляр класс шаблон функции "Kernel<float>"
+  D:\SatImageFilters\include\kernel.h(602): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernel(const size_t,float)"
+  D:\SatImageFilters\src\tiff_image.cu(393): note: см. первую ссылку на "Kernel<float>::GetGaussianKernel" в "TIFFImage::ImageToDeviceMemory"
+D:\SatImageFilters\include\kernel.h(610): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+D:\SatImageFilters\include\kernel.h(637): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  D:\SatImageFilters\include\kernel.h(637): note: контекст создания экземпляра шаблона (сначала самый старый)
+  D:\SatImageFilters\include\kernel.h(632): note: во время компиляции функции-члена класс шаблон "Kernel<float> Kernel<float>::GetGaussianKernelSep(const size_t,float)"
+  
+  D:\SatImageFilters\src\tiff_image.cu(409): note: см. первую ссылку на "Kernel<float>::GetGaussianKernelSep" в "TIFFImage::ImageToDeviceMemory"
+  
+D:\SatImageFilters\include\kernel.h(640): warning C4244: =: преобразование "double" в "float", возможна потеря данных
   
   ninja: build stopped: subcommand failed.
 
-Сбой Сборка.
+Сбой Собрать все.
