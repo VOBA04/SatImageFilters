@@ -60,7 +60,9 @@ int main() {
       fout << "CPU (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
-      image.ImageToDeviceMemory(ImageOperation::GaussianBlur, 9, 5);
+      image.SetImagePatametersForDevice(ImageOperation::GaussianBlur, 9, 5);
+      image.AllocateDeviceMemory();
+      image.CopyImageToDevice();
       start = ch::high_resolution_clock::now();
       image.GaussianBlurCuda(9, 5);
       end = ch::high_resolution_clock::now();
@@ -68,7 +70,7 @@ int main() {
       fout << "CUDA: "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
-      image.ImageToDeviceMemory(ImageOperation::GaussianBlurSep, 9, 5);
+      image.SetImagePatametersForDevice(ImageOperation::GaussianBlurSep, 9, 5);
       start = ch::high_resolution_clock::now();
       image.GaussianBlurSepCuda(9, 5);
       end = ch::high_resolution_clock::now();
@@ -89,9 +91,9 @@ int main() {
       fout << "CPU (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
-      image.ImageToDeviceMemory(ImageOperation::Sobel |
-                                ImageOperation::Prewitt |
-                                ImageOperation::Separated);
+      image.SetImagePatametersForDevice(ImageOperation::Sobel |
+                                        ImageOperation::Prewitt |
+                                        ImageOperation::Separated);
       start = ch::high_resolution_clock::now();
       image.SetKernelCuda(kKernelPrewitt);
       end = ch::high_resolution_clock::now();
