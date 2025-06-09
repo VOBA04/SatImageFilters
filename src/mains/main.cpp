@@ -78,10 +78,12 @@ int main() {
                   << image_name << std::endl;
         continue;
       }
-      image.ImageToDeviceMemory(ImageOperation::GaussianBlurSep |
-                                    ImageOperation::Prewitt |
-                                    ImageOperation::Sobel,
-                                9, 5);
+      image.SetImagePatametersForDevice(ImageOperation::GaussianBlurSep |
+                                            ImageOperation::Prewitt |
+                                            ImageOperation::Sobel,
+                                        9, 5);
+      image.AllocateDeviceMemory();
+      image.CopyImageToDevice();
       // TIFFImage gaussian_image = image.GaussianBlur(9, 5);
       // TIFFImage gaussian_image = image.GaussianBlurSep(9, 5);
       // TIFFImage gaussian_image = image.GaussianBlurCuda(9, 5);
