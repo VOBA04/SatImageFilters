@@ -94,7 +94,7 @@ class MainWindow : public QMainWindow {
 
  private:
   Ui::MainWindow* ui_;        ///< Указатель на пользовательский интерфейс.
-  TIFFImage image_;           ///< Исходное изображение.
+  TIFFImage* image_;          ///< Исходное изображение.
   TIFFImage result_image_;    ///< Обработанное изображение.
   QPixmap original_pixmap_;   ///< Оригинальное изображение в формате QPixmap.
   QPixmap processed_pixmap_;  ///< Обработанное изображение в формате QPixmap.

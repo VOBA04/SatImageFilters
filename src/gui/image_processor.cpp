@@ -14,8 +14,7 @@ ImageProcessor::~ImageProcessor() {
   wait();
 }
 
-void ImageProcessor::EnqueueTask(const TIFFImage& image,
-                                 const ImageTask& task) {
+void ImageProcessor::EnqueueTask(TIFFImage* image, const ImageTask& task) {
   QMutexLocker locker(&mutex_);
   image_ = image;
   tasks_.enqueue(task);
@@ -54,27 +53,31 @@ void ImageProcessor::run() {
     }
     TIFFImage result_image;
     if (task.operation == ImageOperation::GaussianBlur) {
-      image_.CopyImageToDevice();
-      result_image = image_.GaussianBlurCuda(task.gaussian_kernel_size,
-                                             task.gaussian_sigma);
+      image_->CopyImageToDevice();
+      result_image = image_->GaussianBlurCuda(task.gaussian_kernel_size,
+                                              task.gaussian_sigma);
     } else if (task.operation == ImageOperation::Sobel) {
-      image_.CopyImageToDevice();
-      result_image = image_.SetKernelCuda(kKernelSobel);
+      image_->CopyImageToDevice();
+      result_image = image_->SetKernelCuda(kKernelSobel);
     } else if (task.operation == ImageOperation::Prewitt) {
-      image_.CopyImageToDevice();
-      result_image = image_.SetKernelCuda(kKernelPrewitt);
+      image_->CopyImageToDevice();
+      result_image = image_->SetKernelCuda(kKernelPrewitt);
     } else if (task.operation ==
                (ImageOperation::GaussianBlur | ImageOperation::Sobel)) {
-      image_.CopyImageToDevice();
-      TIFFImage gaussian_blurred_image = image_.GaussianBlurCuda(
+      image_->CopyImageToDevice();
+      TIFFImage gaussian_blurred_image = image_->GaussianBlurCuda(
           task.gaussian_kernel_size, task.gaussian_sigma);
+      gaussian_blurred_image.SetImagePatametersForDevice(ImageOperation::Sobel);
+      gaussian_blurred_image.AllocateDeviceMemory();
       gaussian_blurred_image.CopyImageToDevice();
       result_image = gaussian_blurred_image.SetKernelCuda(kKernelSobel);
     } else if (task.operation ==
                (ImageOperation::GaussianBlur | ImageOperation::Prewitt)) {
-      image_.CopyImageToDevice();
-      TIFFImage gaussian_blurred_image = image_.GaussianBlurCuda(
+      image_->CopyImageToDevice();
+      TIFFImage gaussian_blurred_image = image_->GaussianBlurCuda(
           task.gaussian_kernel_size, task.gaussian_sigma);
+      gaussian_blurred_image.SetImagePatametersForDevice(ImageOperation::Prewitt);
+      gaussian_blurred_image.AllocateDeviceMemory();
       gaussian_blurred_image.CopyImageToDevice();
       result_image = gaussian_blurred_image.SetKernelCuda(kKernelPrewitt);
     }
