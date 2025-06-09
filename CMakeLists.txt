@@ -25,6 +25,10 @@ find_package(CUDAToolkit REQUIRED)
 find_package(GTest REQUIRED)
 find_package(Qt6 COMPONENTS Core Gui Widgets)
 
+include(GoogleTest)
+
+add_test(NAME unit_tests COMMAND unit_tests)
+
 if(Qt6_FOUND)
     message(STATUS "Qt6 found, GUI target will be built")
     set(CMAKE_AUTOMOC ON)
@@ -73,8 +77,6 @@ file(GLOB TEST_SOURCES "${TESTS_DIR}/*.cpp" "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}
 add_executable(${PROJECT_NAME} ${SOURCES})
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
-
-add_test(NAME unit_tests COMMAND unit_tests)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_options(unit_tests PRIVATE
