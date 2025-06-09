@@ -9,7 +9,7 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
-#include "check_cuda_errors.cuh"
+#include "check_cuda_errors.h"
 
 __constant__ int d_kernel_sobel[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
 __constant__ int d_kernel_prewitt[9] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
