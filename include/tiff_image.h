@@ -8,6 +8,7 @@
  */
 
 #pragma once
+#include "cuda_mem_manager.h"
 #include "kernel.h"
 #include <cstddef>
 #include <cstdint>
@@ -35,27 +36,8 @@ class TIFFImage {
   float resolution_x_, resolution_y_;    ///< Разрешение по осям X и Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
-  uint16_t* d_src_ =
-      nullptr;  ///< Указатель на исходное изображение в памяти устройства.
-  uint16_t* d_dst_ = nullptr;  ///< Указатель на результирующее изображение в
-                               ///< памяти устройства.
-  float* d_gaussian_sep_temp_ =
-      nullptr;  ///< Указатель на промежуточное изображение для разделенного
-                ///< фильтра Гаусса.
-  int* d_sep_g_x_ =
-      nullptr;  ///< Указатель на градиент по оси X для разделенных фильтров.
-  int* d_sep_g_y_ =
-      nullptr;  ///< Указатель на градиент по оси Y для разделенных фильтров.
-  int* d_sep_result_x_ =
-      nullptr;  ///< Указатель на результат по оси X для разделенных фильтров.
-  int* d_sep_result_y_ =
-      nullptr;  ///< Указатель на результат по оси Y для разделенных фильтров.
-  float* d_gaussian_kernel_ =
-      nullptr;  ///< Указатель на ядро Гаусса в памяти устройства.
-  bool d_mem_allocaded_ =
-      false;  ///< Флаг, указывающий, выделена ли память на устройстве.
-  size_t gaussian_kernel_size_ = 0;  ///< Размер ядра Гаусса.
-  float gaussian_sigma_ = 0;  ///< Стандартное отклонение для ядра Гаусса.
+  CudaMemManager
+      cuda_mem_manager_;  ///< Менеджер памяти CUDA для обработки изображений.
 
   /**
    * @brief Складывает абсолютные значения элементов двух матриц.
@@ -227,30 +209,17 @@ class TIFFImage {
    */
   void CopyFields(const TIFFImage& other);
 
-  /**
-   * @brief Копирует указатели на память устройства из другого объекта
-   * TIFFImage.
-   *
-   * Эта функция копирует указатели на память устройства, такие как указатели
-   * на исходное изображение, результирующее изображение и промежуточные данные,
-   * из другого объекта TIFFImage. Она используется для совместного
-   * использования памяти устройства между объектами.
-   *
-   * @param other Исходный объект TIFFImage для копирования указателей.
-   */
-  void CopyDeviceMemPointers(const TIFFImage& other);
+  void SetImagePatametersForDevice(
+      ImageOperation operations = ImageOperation::None,
+      size_t gaussian_kernel_size = 0, float gaussian_sigma = 0);
 
-  /**
-   * @brief Копирует изображение в память устройства.
-   *
-   * Эта функция загружает текущее изображение в память устройства для
-   * последующей обработки с использованием GPU. Она выделяет память на
-   * устройстве и копирует данные изображения.
-   *
-   * @throws std::runtime_error Если не удается выделить память на устройстве
-   * или изображение не загружено.
-   */
+  void AllocateDeviceMemory();
+
+  void ReallocateDeviceMemory();
+
   void CopyImageToDevice();
+
+  void FreeDeviceMemory();
 
   /**
    * @brief Оператор сравнения.
@@ -271,32 +240,6 @@ class TIFFImage {
    * @return Ссылка на текущий объект.
    */
   TIFFImage& operator=(const TIFFImage& other);
-
-  /**
-   * @brief Копирует изображение и параметры фильтра в память устройства.
-   *
-   * Эта функция выделяет память на устройстве для изображения и необходимых
-   * данных фильтра, таких как ядра и промежуточные результаты. Она также
-   * проверяет доступность памяти на устройстве перед выполнением операций.
-   *
-   * @param operation Тип операции, которая будет применена к изображению.
-   * @param gaussian_kernel_size Размер ядра Гаусса (должен быть нечетным).
-   * @param gaussian_sigma Стандартное отклонение для ядра Гаусса.
-   * @throws std::runtime_error Если операция не задана, параметры некорректны
-   * или недостаточно памяти на устройстве.
-   */
-  void ImageToDeviceMemory(ImageOperation operation = ImageOperation::None,
-                           size_t gaussian_kernel_size = 0,
-                           float gaussian_sigma = 0);
-
-  /**
-   * @brief Освобождает память на устройстве.
-   *
-   * Эта функция освобождает всю выделенную память на устройстве, включая
-   * память для изображения, ядер и промежуточных данных. После вызова этой
-   * функции память на устройстве больше не используется.
-   */
-  void FreeDeviceMemory();
 
   /**
    * @brief Применяет ядро к изображению.
