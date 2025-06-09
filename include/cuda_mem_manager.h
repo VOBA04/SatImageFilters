@@ -19,7 +19,9 @@ class CudaMemManager {
   float* d_gaussian_sep_temp_ = nullptr;
   std::vector<ImageOperation> image_operations_;
   bool is_allocated_ = false;
-  bool operations_are_set_ = false;
+
+  void InitializeGaussianKernel();
+  void ReallocateGaussianKernel();
 
  public:
   CudaMemManager();
@@ -31,11 +33,9 @@ class CudaMemManager {
   void CopyImageFromDevice(uint16_t* dst);
   void SetImageSize(size_t width, size_t height);
   void SetImageSize(size_t image_size);
-  void SetGaussianKernelSize(size_t kernel_size);
-  void SetGaussianSigma(float sigma);
   void SetGaussianParameters(size_t kernel_size, float sigma = 0.0f);
+  void CheckGaussianKernel(size_t kernel_size, float sigma = 0.0f);
   void SetImageOperations(const ImageOperation operations);
-  void UpdateImageOperations(const ImageOperation operations);
   bool CheckFreeMemory(size_t required_memory) const;
   uint16_t* GetDeviceSrc() const;
   uint16_t* GetDeviceDst() const;
@@ -45,4 +45,5 @@ class CudaMemManager {
   int* GetDeviceSepResultY() const;
   float* GetDeviceGaussianKernel() const;
   float* GetDeviceGaussianSepTemp() const;
+  bool IsAllocated() const;
 };

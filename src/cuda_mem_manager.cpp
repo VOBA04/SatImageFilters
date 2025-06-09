@@ -1,10 +1,12 @@
 #include "cuda_mem_manager.h"
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <algorithm>
 #include <cuda_runtime.h>
 #include "check_cuda_errors.h"
 #include "image_operation.h"
+#include "kernel.h"
 
 CudaMemManager::CudaMemManager() {
 }
@@ -42,7 +44,7 @@ void CudaMemManager::AllocateMemory() {
       std::find(image_operations_.begin(), image_operations_.end(),
                 ImageOperation::GaussianBlurSep) != image_operations_.end();
   if (gaussian_blur_required || gaussian_blur_sep_required) {
-    if (gaussian_kernel_size_ == 0 || gaussian_sigma_ <= 0.0f) {
+    if (gaussian_kernel_size_ == 0 || gaussian_sigma_ < 0.0f) {
       throw std::runtime_error("Gaussian parameters are not set.");
     }
   }
@@ -80,6 +82,9 @@ void CudaMemManager::AllocateMemory() {
         cudaMalloc(&d_gaussian_sep_temp_, image_size_ * sizeof(float)));
   }
   is_allocated_ = true;
+  if (gaussian_blur_required || gaussian_blur_sep_required) {
+    InitializeGaussianKernel();
+  }
 }
 
 void CudaMemManager::FreeMemory() {
@@ -128,14 +133,16 @@ void CudaMemManager::CopyImageToDevice(const uint16_t* src) {
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
-  checkCudaErrors(cudaMemcpy(d_src_, src, image_size_, cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(d_src_, src, image_size_ * sizeof(uint16_t),
+                             cudaMemcpyHostToDevice));
 }
 
 void CudaMemManager::CopyImageFromDevice(uint16_t* dst) {
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
-  checkCudaErrors(cudaMemcpy(dst, d_dst_, image_size_, cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(dst, d_dst_, image_size_ * sizeof(uint16_t),
+                             cudaMemcpyDeviceToHost));
 }
 
 void CudaMemManager::SetImageSize(size_t width, size_t height) {
@@ -152,34 +159,82 @@ void CudaMemManager::SetImageSize(size_t image_size) {
   image_size_ = image_size;
 }
 
-void CudaMemManager::SetGaussianKernelSize(size_t kernel_size) {
-  if (kernel_size == 0 || kernel_size % 2 == 0) {
-    throw std::invalid_argument("Kernel size must be a positive odd number.");
+void CudaMemManager::SetGaussianParameters(size_t kernel_size, float sigma) {
+  if (kernel_size % 2 == 0 || sigma < 0.0f) {
+    throw std::invalid_argument(
+        "Kernel size must be a positive odd number and sigma must be "
+        "non-negative.");
   }
   gaussian_kernel_size_ = kernel_size;
-}
-
-void CudaMemManager::SetGaussianSigma(float sigma) {
-  if (sigma <= 0.0f) {
-    throw std::invalid_argument("Sigma must be a positive number.");
-  }
   gaussian_sigma_ = sigma;
 }
 
-void CudaMemManager::SetGaussianParameters(size_t kernel_size, float sigma) {
-  SetGaussianKernelSize(kernel_size);
-  SetGaussianSigma(sigma);
+void CudaMemManager::InitializeGaussianKernel() {
+  if (gaussian_kernel_size_ == 0 || gaussian_sigma_ < 0.0f) {
+    throw std::runtime_error("Gaussian parameters are not set.");
+  }
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  if (d_gaussian_kernel_ == nullptr) {
+    throw std::runtime_error("Gaussian kernel memory is not allocated.");
+  }
+  if (std::find(image_operations_.begin(), image_operations_.end(),
+                ImageOperation::GaussianBlur) != image_operations_.end()) {
+    Kernel<float> kernel = Kernel<float>::GetGaussianKernel(
+        gaussian_kernel_size_, gaussian_sigma_);
+    float* gaussian_kernel;
+    kernel.CopyKernelTo(&gaussian_kernel);
+    checkCudaErrors(cudaMemcpy(
+        d_gaussian_kernel_, gaussian_kernel,
+        gaussian_kernel_size_ * gaussian_kernel_size_ * sizeof(float),
+        cudaMemcpyHostToDevice));
+    delete[] gaussian_kernel;
+  } else if (std::find(image_operations_.begin(), image_operations_.end(),
+                       ImageOperation::GaussianBlurSep) !=
+             image_operations_.end()) {
+    Kernel<float> kernel = Kernel<float>::GetGaussianKernelSep(
+        gaussian_kernel_size_, gaussian_sigma_);
+    float* gaussian_kernel;
+    kernel.CopyKernelTo(&gaussian_kernel);
+    checkCudaErrors(cudaMemcpy(d_gaussian_kernel_, gaussian_kernel,
+                               gaussian_kernel_size_ * sizeof(float),
+                               cudaMemcpyHostToDevice));
+    delete[] gaussian_kernel;
+  }
+}
+
+void CudaMemManager::ReallocateGaussianKernel() {
+  checkCudaErrors(cudaFree(d_gaussian_kernel_));
+  if (std::find(image_operations_.begin(), image_operations_.end(),
+                ImageOperation::GaussianBlur) != image_operations_.end()) {
+    checkCudaErrors(cudaMalloc(
+        &d_gaussian_kernel_,
+        gaussian_kernel_size_ * gaussian_kernel_size_ * sizeof(float)));
+  } else if (std::find(image_operations_.begin(), image_operations_.end(),
+                       ImageOperation::GaussianBlurSep) !=
+             image_operations_.end()) {
+    checkCudaErrors(
+        cudaMalloc(&d_gaussian_kernel_, gaussian_kernel_size_ * sizeof(float)));
+  }
+}
+
+void CudaMemManager::CheckGaussianKernel(size_t kernel_size, float sigma) {
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  if (d_gaussian_kernel_ == nullptr) {
+    throw std::runtime_error("Gaussian kernel memory is not allocated.");
+  }
+  if (kernel_size != gaussian_kernel_size_ || sigma != gaussian_sigma_) {
+    gaussian_kernel_size_ = kernel_size;
+    gaussian_sigma_ = sigma;
+    ReallocateGaussianKernel();
+    InitializeGaussianKernel();
+  }
 }
 
 void CudaMemManager::SetImageOperations(const ImageOperation operations) {
-  if (operations_are_set_) {
-    throw std::runtime_error("Image operations are already set.");
-  }
-  image_operations_ = DecomposeOperations(operations);
-  operations_are_set_ = true;
-}
-
-void CudaMemManager::UpdateImageOperations(const ImageOperation operations) {
   auto new_operations = DecomposeOperations(operations);
   if (new_operations != image_operations_) {
     image_operations_ = new_operations;
@@ -188,7 +243,6 @@ void CudaMemManager::UpdateImageOperations(const ImageOperation operations) {
       AllocateMemory();
     }
   }
-  operations_are_set_ = true;
 }
 
 bool CudaMemManager::CheckFreeMemory(size_t required_memory) const {
@@ -227,4 +281,8 @@ float* CudaMemManager::GetDeviceGaussianKernel() const {
 
 float* CudaMemManager::GetDeviceGaussianSepTemp() const {
   return d_gaussian_sep_temp_;
+}
+
+bool CudaMemManager::IsAllocated() const {
+  return is_allocated_;
 }
