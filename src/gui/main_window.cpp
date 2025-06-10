@@ -45,6 +45,7 @@ MainWindow::MainWindow(QWidget* parent)
   ui_->combobox->setCurrentIndex(0);
   ui_->action_photo->setEnabled(false);
   ui_->action_save->setEnabled(false);
+  image_ = new TIFFImage();
   timer_ = new QTimer(this);
   video_capture_ = cv::VideoCapture();
   connect(ui_->spinbox, &QSpinBox::valueChanged, this, [this](int value) {
@@ -76,8 +77,7 @@ MainWindow::~MainWindow() {
   if (video_capture_.isOpened()) {
     video_capture_.release();
   }
-  image_.Close();
-  image_.FreeDeviceMemory();
+  image_->Close();
 }
 
 void MainWindow::OpenImage() {
@@ -87,19 +87,21 @@ void MainWindow::OpenImage() {
   if (!filename.isEmpty()) {
     ui_->action_save->setEnabled(true);
     image_processor_->ClearTasks();
-    image_.Close();
+    image_->Close();
     try {
-      image_.Open(filename.toStdString().c_str());
+      image_->Open(filename.toStdString().c_str());
     } catch (const std::runtime_error& e) {
       QMessageBox::warning(this, tr("Ошибка"),
                            tr("Не удалось открыть файл: %1").arg(e.what()));
       return;
     }
-    image_.ImageToDeviceMemory(ImageOperation::Sobel | ImageOperation::Prewitt |
-                                   ImageOperation::GaussianBlur,
-                               ui_->spinbox->value(),
-                               ui_->double_spinbox->value());
-    original_pixmap_ = QPixmap::fromImage(image_.ToQImage());
+    image_->SetImagePatametersForDevice(
+        ImageOperation::Sobel | ImageOperation::Prewitt |
+            ImageOperation::GaussianBlur,
+        ui_->spinbox->value(), ui_->double_spinbox->value());
+    image_->ReallocateDeviceMemory();
+    image_->CopyImageToDevice();
+    original_pixmap_ = QPixmap::fromImage(image_->ToQImage());
     ui_->label_image_orig->setPixmap(
         original_pixmap_.scaled(ui_->label_image_orig->size(),
                                 Qt::KeepAspectRatio, Qt::SmoothTransformation));
@@ -141,7 +143,6 @@ void MainWindow::ProcessImage() {
 
 void MainWindow::UpdateResult(const TIFFImage& result_image) {
   result_image_ = result_image;
-  image_.CopyDeviceMemPointers(result_image);
   processed_pixmap_ = QPixmap::fromImage(result_image.ToQImage());
   QPixmap scaled_pixmap =
       processed_pixmap_.scaled(ui_->label_image_result->size(),
@@ -183,8 +184,8 @@ void MainWindow::StartVideo() {
   ui_->action_video->setEnabled(false);
   ui_->action_save->setEnabled(false);
   image_processor_->ClearTasks();
-  image_.Close();
-  image_.Clear();
+  image_->Close();
+  image_->Clear();
   cv::Mat frame;
   video_capture_ >> frame;
   if (frame.empty()) {
@@ -192,12 +193,14 @@ void MainWindow::StartVideo() {
   }
   cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
   frame.convertTo(frame, CV_16U, 256);
-  image_.SetImage(frame.cols, frame.rows, (uint16_t*)frame.data);
-  image_.ImageToDeviceMemory(ImageOperation::Sobel | ImageOperation::Prewitt |
-                                 ImageOperation::GaussianBlur,
-                             ui_->spinbox->value(),
-                             ui_->double_spinbox->value());
-  original_pixmap_ = QPixmap::fromImage(image_.ToQImage());
+  image_->SetImage(frame.cols, frame.rows, (uint16_t*)frame.data);
+  image_->SetImagePatametersForDevice(
+      ImageOperation::Sobel | ImageOperation::Prewitt |
+          ImageOperation::GaussianBlur,
+      ui_->spinbox->value(), ui_->double_spinbox->value());
+  image_->ReallocateDeviceMemory();
+  image_->CopyImageToDevice();
+  original_pixmap_ = QPixmap::fromImage(image_->ToQImage());
   ui_->label_image_orig->setPixmap(
       original_pixmap_.scaled(ui_->label_image_orig->size(),
                               Qt::KeepAspectRatio, Qt::SmoothTransformation));
@@ -208,7 +211,7 @@ void MainWindow::StopVideo() {
   timer_->stop();
   image_processor_->ClearTasks();
   video_capture_.release();
-  image_.Close();
+  image_->Close();
   ui_->action_photo->setEnabled(false);
   ui_->action_video->setEnabled(true);
   ui_->action_save->setEnabled(true);
@@ -227,8 +230,8 @@ void MainWindow::ProcessVideoFrame() {
   }
   cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
   frame.convertTo(frame, CV_16U, 256);
-  image_.SetImage(frame.cols, frame.rows, (uint16_t*)frame.data);
-  original_pixmap_ = QPixmap::fromImage(image_.ToQImage());
+  image_->SetImage(frame.cols, frame.rows, (uint16_t*)frame.data);
+  original_pixmap_ = QPixmap::fromImage(image_->ToQImage());
   ui_->label_image_orig->setPixmap(
       original_pixmap_.scaled(ui_->label_image_orig->size(),
                               Qt::KeepAspectRatio, Qt::SmoothTransformation));

@@ -43,7 +43,7 @@ struct ImageTask {
 class ImageProcessor : public QThread {
   Q_OBJECT
  private:
-  TIFFImage image_;  ///< Текущее изображение, обрабатываемое в данный момент.
+  TIFFImage* image_;  ///< Текущее изображение, обрабатываемое в данный момент.
   QQueue<ImageTask> tasks_;  ///< Очередь задач для обработки.
   QMutex mutex_;  ///< Мьютекс для потокобезопасного доступа к общим ресурсам.
   QWaitCondition condition_;  ///< Условная переменная для синхронизации задач.
@@ -70,7 +70,7 @@ class ImageProcessor : public QThread {
    * @param image Изображение для обработки.
    * @param task Задача, которую нужно выполнить над изображением.
    */
-  void EnqueueTask(const TIFFImage& image, const ImageTask& task);
+  void EnqueueTask(TIFFImage* image, const ImageTask& task);
 
   /**
    * @brief Очищает все задачи из очереди обработки.

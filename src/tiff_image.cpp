@@ -56,7 +56,6 @@ TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
 
 TIFFImage::TIFFImage(const TIFFImage& other) {
   CopyFields(other);
-  CopyDeviceMemPointers(other);
   std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
 }
 
@@ -170,7 +169,6 @@ void TIFFImage::Clear() {
   resolution_unit_enabled_ = true;
   resolution_x_ = 0;
   resolution_y_ = 0;
-  FreeDeviceMemory();
 }
 
 uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
@@ -242,18 +240,37 @@ void TIFFImage::CopyFields(const TIFFImage& other) {
   image_ = new uint16_t[width_ * height_];
 }
 
-void TIFFImage::CopyDeviceMemPointers(const TIFFImage& other) {
-  d_src_ = other.d_src_;
-  d_dst_ = other.d_dst_;
-  d_gaussian_sep_temp_ = other.d_gaussian_sep_temp_;
-  d_sep_g_x_ = other.d_sep_g_x_;
-  d_sep_g_y_ = other.d_sep_g_y_;
-  d_sep_result_x_ = other.d_sep_result_x_;
-  d_sep_result_y_ = other.d_sep_result_y_;
-  d_gaussian_kernel_ = other.d_gaussian_kernel_;
-  d_mem_allocaded_ = other.d_mem_allocaded_;
-  gaussian_kernel_size_ = other.gaussian_kernel_size_;
-  gaussian_sigma_ = other.gaussian_sigma_;
+void TIFFImage::SetImagePatametersForDevice(ImageOperation operations,
+                                            size_t gaussian_kernel_size,
+                                            float gaussian_sigma) {
+  cuda_mem_manager_.SetImageSize(width_, height_);
+  if (((static_cast<int>(operations) &
+        static_cast<int>(ImageOperation::GaussianBlur)) != 0) ||
+      ((static_cast<int>(operations) &
+        static_cast<int>(ImageOperation::GaussianBlurSep)) != 0)) {
+    cuda_mem_manager_.SetGaussianParameters(gaussian_kernel_size,
+                                            gaussian_sigma);
+  }
+  cuda_mem_manager_.SetImageOperations(operations);
+}
+
+void TIFFImage::AllocateDeviceMemory() {
+  cuda_mem_manager_.AllocateMemory();
+}
+
+void TIFFImage::ReallocateDeviceMemory() {
+  cuda_mem_manager_.ReallocateMemory();
+}
+
+void TIFFImage::FreeDeviceMemory() {
+  cuda_mem_manager_.FreeMemory();
+}
+
+void TIFFImage::CopyImageToDevice() {
+  if (image_ == nullptr) {
+    throw std::runtime_error("Изображение не загружено");
+  }
+  cuda_mem_manager_.CopyImageToDevice(image_);
 }
 
 bool TIFFImage::operator==(const TIFFImage& other) const {
@@ -288,7 +305,6 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
     return *this;
   }
   CopyFields(other);
-  CopyDeviceMemPointers(other);
   std::memcpy(image_, other.image_, width_ * height_ * sizeof(uint16_t));
   return *this;
 }

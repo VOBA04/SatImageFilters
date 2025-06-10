@@ -33,6 +33,10 @@ find_package(CUDAToolkit REQUIRED)
 find_package(GTest REQUIRED)
 find_package(Qt6 COMPONENTS Core Gui Widgets)
 
+include(GoogleTest)
+
+add_test(NAME unit_tests COMMAND unit_tests)
+
 if(Qt6_FOUND)
     message(STATUS "Qt6 found, GUI target will be built")
     set(CMAKE_AUTOMOC ON)
@@ -82,7 +86,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
 
-add_test(NAME unit_tests COMMAND unit_tests)
+add_test(NAME unit_test COMMAND unit_tests)
 
 if(NOT MSVC)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -119,18 +123,6 @@ add_custom_target(coverage
     COMMENT "Generating code coverage report"
     DEPENDS unit_tests
 )
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
-    $<TARGET_FILE_DIR:${PROJECT_NAME}>)
-add_custom_command(TARGET speedtest POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
-    $<TARGET_FILE_DIR:speedtest>)
-add_custom_command(TARGET unit_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "C:/Program Files/tiff-4.7.0/build/libtiff/Release/tiff.dll"
-    $<TARGET_FILE_DIR:unit_tests>)
 
 message(STATUS "TIFF_INCLUDE_DIRS: ${TIFF_INCLUDE_DIRS}")
 message(STATUS "TIFF_LIBRARIES: ${TIFF_LIBRARIES}")
