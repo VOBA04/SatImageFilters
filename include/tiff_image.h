@@ -8,18 +8,21 @@
  */
 
 #pragma once
-#include "cuda_mem_manager.h"
-#include "kernel.h"
-#include <cstddef>
-#include <cstdint>
-#include <string>
 #include <tiff.h>
 #include <tiffio.h>
+
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <string>
+
+#include "cuda_mem_manager.h"
 #include "image_operation.h"
+#include "kernel.h"
 
 #ifdef USE_QT
 #include <qimage.h>
+
 #include <QImage>
 #endif
 

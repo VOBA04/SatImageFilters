@@ -1,11 +1,14 @@
 #include "tiff_image.h"
+
 #include <tiff.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+
 #include "kernel.h"
 
 const Kernel<int> kKernelSobelX(1, 3, {{1, 2, 1}}, true);
@@ -27,16 +30,11 @@ uint16_t* TIFFImage::AddAbsMtx(const int* mtx1, const int* mtx2, size_t height,
   return result;
 }
 
-TIFFImage::TIFFImage() {
-}
+TIFFImage::TIFFImage() {}
 
-TIFFImage::TIFFImage(const char* name) noexcept(false) {
-  Open(name);
-}
+TIFFImage::TIFFImage(const char* name) noexcept(false) { Open(name); }
 
-TIFFImage::TIFFImage(const std::string name) noexcept(false) {
-  Open(name);
-}
+TIFFImage::TIFFImage(const std::string name) noexcept(false) { Open(name); }
 
 TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
                      uint16_t bits_per_sample, uint16_t photo_metric,
@@ -145,12 +143,10 @@ void TIFFImage::Save(const char* name) {
   TIFFClose(tif);
 }
 
-void TIFFImage::Save(const std::string& name) {
-  Save(name.c_str());
-}
+void TIFFImage::Save(const std::string& name) { Save(name.c_str()); }
 
 void TIFFImage::Save(const std::filesystem::path& name) {
-  Save(name.c_str());
+  Save(name.generic_string());
 }
 
 void TIFFImage::Clear() {
@@ -185,13 +181,9 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   }
 }
 
-size_t TIFFImage::GetWidth() const {
-  return width_;
-}
+size_t TIFFImage::GetWidth() const { return width_; }
 
-size_t TIFFImage::GetHeight() const {
-  return height_;
-}
+size_t TIFFImage::GetHeight() const { return height_; }
 
 void TIFFImage::Set(const size_t x, const size_t y,
                     const uint16_t value) noexcept(false) {
@@ -254,17 +246,13 @@ void TIFFImage::SetImagePatametersForDevice(ImageOperation operations,
   cuda_mem_manager_.SetImageOperations(operations);
 }
 
-void TIFFImage::AllocateDeviceMemory() {
-  cuda_mem_manager_.AllocateMemory();
-}
+void TIFFImage::AllocateDeviceMemory() { cuda_mem_manager_.AllocateMemory(); }
 
 void TIFFImage::ReallocateDeviceMemory() {
   cuda_mem_manager_.ReallocateMemory();
 }
 
-void TIFFImage::FreeDeviceMemory() {
-  cuda_mem_manager_.FreeMemory();
-}
+void TIFFImage::FreeDeviceMemory() { cuda_mem_manager_.FreeMemory(); }
 
 void TIFFImage::CopyImageToDevice() {
   if (image_ == nullptr) {
