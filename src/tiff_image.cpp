@@ -34,7 +34,11 @@ TIFFImage::TIFFImage() {}
 
 TIFFImage::TIFFImage(const char* name) noexcept(false) { Open(name); }
 
-TIFFImage::TIFFImage(const std::string name) noexcept(false) { Open(name); }
+TIFFImage::TIFFImage(const std::string& name) noexcept(false) { Open(name); }
+
+TIFFImage::TIFFImage(const std::filesystem::path& name) noexcept(false) {
+  Open(name);
+}
 
 TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
                      uint16_t bits_per_sample, uint16_t photo_metric,
@@ -108,6 +112,10 @@ void TIFFImage::Open(const std::string& name) noexcept(false) {
   Open(name.c_str());
 }
 
+void TIFFImage::Open(const std::filesystem::path& name) noexcept(false) {
+  Open(name.generic_string());
+}
+
 void TIFFImage::Close() {
   if (tif_ != nullptr) {
     TIFFClose(tif_);
@@ -118,7 +126,7 @@ void TIFFImage::Close() {
 void TIFFImage::Save(const char* name) {
   TIFF* tif = TIFFOpen(name, "w");
   if (tif == nullptr) {
-    throw std::runtime_error("Yhe file cannot be created");
+    throw std::runtime_error("The file cannot be created");
   }
   TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width_);
   TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height_);
@@ -277,9 +285,9 @@ bool TIFFImage::operator==(const TIFFImage& other) const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       if (image_[i * width_ + j] != other.image_[i * width_ + j]) {
-        // std::cerr << "Images differ at (" << i << ", " << j
-        //           << "): " << image_[i * width_ + j] << " vs "
-        //           << other.image_[i * width_ + j] << std::endl;
+        /*std::cerr << "Images differ at (" << i << ", " << j
+                  << "): " << image_[i * width_ + j] << " vs "
+                  << other.image_[i * width_ + j] << std::endl;*/
         return false;
       }
     }

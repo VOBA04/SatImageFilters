@@ -1,27 +1,33 @@
+#include <cuda_runtime.h>
 #include <gtest/gtest.h>
 #include <opencv2/core/hal/interface.h>
 #include <tiffio.h>
-#include "image_operation.h"
-#include "kernel.h"
-#include "tiff_image.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/opencv.hpp>
+#include <random>
 #include <string>
-#include <filesystem>
-#include <cuda_runtime.h>
+
+#include "image_operation.h"
+#include "kernel.h"
+#include "tiff_image.h"
 
 const std::string kTestImagePath =
     std::string(PROJECT_SOURCE_DIR) + "/tests/test_image.tiff";
+
+const std::string kTestImage("test_image.tiff");
 
 namespace fs = std::filesystem;
 
 const size_t kTestImagesCount = 9;
 
-void CreateTestImage(int width, int height, uint8_t image_type = 0) {
+void CreateTestImage(fs::path temp_dir, int width, int height,
+                     uint8_t image_type = 0) {
   cv::Mat img(height, width, CV_16U, cv::Scalar(0));
   switch (image_type) {
     case 0:
@@ -88,7 +94,7 @@ void CreateTestImage(int width, int height, uint8_t image_type = 0) {
       }
       break;
   }
-  cv::imwrite(kTestImagePath, img);
+  cv::imwrite((temp_dir / kTestImage).generic_string(), img);
 }
 
 inline bool IsCudaAvailable(std::string* error_message = nullptr) {
@@ -109,52 +115,76 @@ inline bool IsCudaAvailable(std::string* error_message = nullptr) {
   return true;
 }
 
+inline fs::path GetTempDir() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> dis(1000, 9999);
+  fs::path temp_dir =
+      fs::temp_directory_path() / ("test_temp_" + std::to_string(dis(gen)));
+  if (!fs::create_directory(temp_dir)) {
+    std::cerr << "Failed to create a temporary directory: " << temp_dir;
+    exit(1);
+  }
+  return temp_dir;
+}
+
+inline void DeleteTempDir(fs::path temp_dir) {
+  if (fs::exists(temp_dir)) {
+    fs::remove_all(temp_dir);
+  }
+}
+
 TEST(TIFFImageTest, LoadAndSave) {
-  CreateTestImage(100, 100);
-  TIFFImage img(kTestImagePath);
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 100, 100);
+  TIFFImage img(temp_dir / kTestImage);
   EXPECT_EQ(img.GetWidth(), 100);
   EXPECT_EQ(img.GetHeight(), 100);
-  EXPECT_NO_THROW(img.Save(std::string(PROJECT_SOURCE_DIR) +
-                           "/tests/test_image_copy.tiff"));
-  EXPECT_THROW(
-      img.Save(std::string(PROJECT_SOURCE_DIR) + "tests/test_image_copy.tiff"),
-      std::runtime_error);
-  TIFFImage img_copy(std::string(PROJECT_SOURCE_DIR) +
-                     "/tests/test_image_copy.tiff");
+  EXPECT_NO_THROW(img.Save(temp_dir / "test_image_copy.tiff"));
+  EXPECT_THROW(img.Save(temp_dir / "tests/test_image_copy.tiff"),
+               std::runtime_error);
+  TIFFImage img_copy(temp_dir / "test_image_copy.tiff");
   EXPECT_TRUE(img == img_copy);
-  fs::remove(kTestImagePath);
-  fs::remove(std::string(PROJECT_SOURCE_DIR) + "/tests/test_image_copy.tiff");
+  img.Close();
+  img_copy.Close();
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, CopyConstructor) {
-  CreateTestImage(100, 100);
-  TIFFImage img(kTestImagePath);
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 100, 100);
+  TIFFImage img(temp_dir / kTestImage);
   TIFFImage img_copy(img);
   EXPECT_TRUE(img == img_copy);
-  fs::remove(kTestImagePath);
+  img.Close();
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, CopyAssignment) {
-  CreateTestImage(100, 100);
-  TIFFImage img(kTestImagePath);
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 100, 100);
+  TIFFImage img(temp_dir / kTestImage);
   TIFFImage img_copy;
   img_copy = img;
   EXPECT_TRUE(img == img_copy);
   img = img_copy;
   EXPECT_TRUE(img == img_copy);
   EXPECT_NO_FATAL_FAILURE(img_copy.CopyFields(img));
-  fs::remove(kTestImagePath);
+  img.Close();
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, NotEqual) {
-  CreateTestImage(100, 100);
-  TIFFImage img(kTestImagePath);
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 100, 100);
+  TIFFImage img(temp_dir / kTestImage);
   TIFFImage img2(200, 200);
   TIFFImage img3(img);
   img3.Set(0, 0, 1);
   EXPECT_FALSE(img == img2);
   EXPECT_FALSE(img == img3);
-  fs::remove(kTestImagePath);
+  img.Close();
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, GetSetPixel) {
@@ -180,11 +210,13 @@ TEST(TIFFImageTest, Clrear) {
 }
 
 TEST(TIFFImageTest, GaussianBlurCPU) {
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred = img.GaussianBlur(3, 1.0);
-    cv::Mat cv_img = cv::imread(kTestImagePath, cv::IMREAD_UNCHANGED);
+    cv::Mat cv_img = cv::imread((temp_dir / kTestImage).generic_string(),
+                                cv::IMREAD_UNCHANGED);
     cv::Mat blurred_cv;
     cv::GaussianBlur(cv_img, blurred_cv, cv::Size(3, 3), 1.0, 0,
                      cv::BORDER_REPLICATE);
@@ -199,8 +231,8 @@ TEST(TIFFImageTest, GaussianBlurCPU) {
         }
       }
     }
-    fs::remove(kTestImagePath);
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, GaussianBlurGPU) {
@@ -208,9 +240,10 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
     TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
     TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
@@ -265,19 +298,21 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
       }
     }
     img.FreeDeviceMemory();
-    fs::remove(kTestImagePath);
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, SobelFilterCPU) {
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage sobel_x = img.SetKernel(kKernelSobel, false);
     TIFFImage sobel_y = img.SetKernel(
         kKernelSobel.Rotate(KernelRotationDegrees::DEGREES_90), false);
     TIFFImage sobel = img.SetKernel(kKernelSobel);
-    cv::Mat cv_img = cv::imread(kTestImagePath, cv::IMREAD_UNCHANGED);
+    cv::Mat cv_img = cv::imread((temp_dir / kTestImage).generic_string(),
+                                cv::IMREAD_UNCHANGED);
     cv::Mat sobel_x_cv, sobel_y_cv, sobel_cv;
     float sobel_kernel_x[3 * 3] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
     float sobel_kernel_y[3 * 3] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
@@ -320,9 +355,9 @@ TEST(TIFFImageTest, SobelFilterCPU) {
       }
     }
     TIFFImage sobel_sep = img.SetKernelSobelSep();
-    EXPECT_TRUE(sobel == sobel_sep);
-    fs::remove(kTestImagePath);
+    EXPECT_TRUE(sobel == sobel_sep) << "Image: " << k;
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, SobelFilterGPU) {
@@ -330,38 +365,41 @@ TEST(TIFFImageTest, SobelFilterGPU) {
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage sobel = img.SetKernel(kKernelSobel);
     TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel);
-    EXPECT_TRUE(sobel == sobel_cuda);
+    EXPECT_TRUE(sobel == sobel_cuda) << "Image: " << k;
     TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
-    EXPECT_TRUE(sobel == sobel_cuda_sep);
+    EXPECT_TRUE(sobel == sobel_cuda_sep) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Sobel);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
     sobel_cuda = img.SetKernelCuda(kKernelSobel);
-    EXPECT_TRUE(sobel == sobel_cuda);
+    EXPECT_TRUE(sobel == sobel_cuda) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Sobel |
                                     ImageOperation::Separated);
     img.CopyImageToDevice();
     sobel_cuda_sep = img.SetKernelSobelSepCuda();
-    EXPECT_TRUE(sobel == sobel_cuda_sep);
+    EXPECT_TRUE(sobel == sobel_cuda_sep) << "Image: " << k;
     img.FreeDeviceMemory();
-    fs::remove(kTestImagePath);
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, PrewittFilterCPU) {
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage prewitt_x = img.SetKernel(kKernelPrewitt, false);
     TIFFImage prewitt_y = img.SetKernel(
         kKernelPrewitt.Rotate(KernelRotationDegrees::DEGREES_90), false);
     TIFFImage prewitt = img.SetKernel(kKernelPrewitt);
-    cv::Mat cv_img = cv::imread(kTestImagePath, cv::IMREAD_UNCHANGED);
+    cv::Mat cv_img = cv::imread((temp_dir / kTestImage).generic_string(),
+                                cv::IMREAD_UNCHANGED);
     cv::Mat prewitt_x_cv, prewitt_y_cv, prewitt_cv;
     float prewitt_kernel_x[3 * 3] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
     float prewitt_kernel_y[3 * 3] = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
@@ -398,9 +436,9 @@ TEST(TIFFImageTest, PrewittFilterCPU) {
       }
     }
     TIFFImage prewitt_sep = img.SetKernelPrewittSep();
-    EXPECT_TRUE(prewitt == prewitt_sep);
-    fs::remove(kTestImagePath);
+    EXPECT_TRUE(prewitt == prewitt_sep) << "Image: " << k;
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, PrewittFilterGPU) {
@@ -408,31 +446,32 @@ TEST(TIFFImageTest, PrewittFilterGPU) {
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
+  fs::path temp_dir = GetTempDir();
   for (size_t k = 0; k < kTestImagesCount; k++) {
-    CreateTestImage(100, 100, k);
-    TIFFImage img(kTestImagePath);
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
     TIFFImage prewitt = img.SetKernel(kKernelPrewitt);
     TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
-    EXPECT_TRUE(prewitt == prewitt_cuda);
+    EXPECT_TRUE(prewitt == prewitt_cuda) << "Image: " << k;
     TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
-    EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+    EXPECT_TRUE(prewitt == prewitt_cuda_sep) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Prewitt);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
     prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
-    EXPECT_TRUE(prewitt == prewitt_cuda);
+    EXPECT_TRUE(prewitt == prewitt_cuda) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Prewitt |
                                     ImageOperation::Separated);
     img.CopyImageToDevice();
     prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
-    EXPECT_TRUE(prewitt == prewitt_cuda_sep);
+    EXPECT_TRUE(prewitt == prewitt_cuda_sep) << "Image: " << k;
     img.FreeDeviceMemory();
-    fs::remove(kTestImagePath);
   }
+  DeleteTempDir(temp_dir);
 }
 
 TEST(TIFFImageTest, InvalidFile) {
-  EXPECT_THROW(TIFFImage("non_existent.tif"), std::runtime_error);
+  EXPECT_THROW(TIFFImage("non_existent.tiff"), std::runtime_error);
 }
 
 TEST(TIFFImageTest, LargeImage) {
@@ -453,7 +492,9 @@ TEST(TIFFImageTest, CudaMemoryManagement) {
   if (!IsCudaAvailable(&cuda_error)) {
     GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
   }
-  CreateTestImage(100, 100);
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 100, 100);
   TIFFImage img(kTestImagePath);
-  fs::remove(kTestImagePath);
+  img.Close();
+  DeleteTempDir(temp_dir);
 }

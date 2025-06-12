@@ -85,7 +85,9 @@ class TIFFImage {
    * @param name Имя файла.
    * @throws std::runtime_error Если не удается открыть файл.
    */
-  explicit TIFFImage(std::string name) noexcept(false);
+  explicit TIFFImage(const std::string& name) noexcept(false);
+
+  explicit TIFFImage(const std::filesystem::path& name) noexcept(false);
 
   TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel = 1,
             uint16_t bits_per_sample = 16,
@@ -129,6 +131,8 @@ class TIFFImage {
    * @throws std::runtime_error Если не удается открыть файл или файл поврежден.
    */
   void Open(const std::string& name) noexcept(false);
+
+  void Open(const std::filesystem::path& name) noexcept(false);
 
   /**
    * @brief Закрывает файл с изображением.
