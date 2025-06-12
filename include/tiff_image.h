@@ -33,8 +33,8 @@ class TIFFImage {
  private:
   TIFF* tif_ = nullptr;            ///< Указатель на объект TIFF.
   size_t width_ = 0, height_ = 0;  ///< Ширина и высота изображения.
-  uint16_t samples_per_pixel_, bits_per_sample_, photo_metric_,
-      resolution_unit_, config_;  ///< Параметры изображения.
+  uint16_t samples_per_pixel_ = 0, bits_per_sample_ = 0, photo_metric_,
+           resolution_unit_, config_;  ///< Параметры изображения.
   bool photo_metric_enabled_ = true,
        resolution_unit_enabled_ = true;  ///< Флаги включения параметров.
   float resolution_x_, resolution_y_;    ///< Разрешение по осям X и Y.
@@ -258,6 +258,9 @@ class TIFFImage {
    * @return Ссылка на текущий объект.
    */
   TIFFImage& operator=(const TIFFImage& other);
+
+  friend std::ostream& operator<<(std::ostream& out,
+                                  const TIFFImage& tiff_image);
 
   /**
    * @brief Применяет ядро к изображению.

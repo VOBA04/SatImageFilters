@@ -305,6 +305,23 @@ TIFFImage& TIFFImage::operator=(const TIFFImage& other) {
   return *this;
 }
 
+std::ostream& operator<<(std::ostream& out, const TIFFImage& tiff) {
+  out << "Size: " << tiff.width_ << "x" << tiff.height_ << std::endl
+      << "Samples per pixel: " << tiff.samples_per_pixel_ << std::endl
+      << "Bits per sample: " << tiff.bits_per_sample_ << std::endl;
+  if (tiff.image_ == nullptr) {
+    out << "Image not specified" << std::endl;
+  } else {
+    for (size_t i = 0; i < tiff.height_; i++) {
+      for (size_t j = 0; j < tiff.width_; j++) {
+        out << tiff.image_[i * tiff.width_ + j] << " ";
+      }
+      out << std::endl;
+    }
+  }
+  return out;
+}
+
 TIFFImage TIFFImage::SetKernel(const Kernel<int>& kernel, bool rotate) const {
   TIFFImage result(*this);
   if (rotate) {
