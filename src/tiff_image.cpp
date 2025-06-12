@@ -68,7 +68,7 @@ TIFFImage::~TIFFImage() {
 void TIFFImage::Open(const char* name) noexcept(false) {
   tif_ = TIFFOpen(name, "r");
   if (tif_ == nullptr) {
-    throw std::runtime_error("Невозможно открыть файл");
+    throw std::runtime_error("The file cannot be opened");
   }
   TIFFGetField(tif_, TIFFTAG_IMAGEWIDTH, &width_);
   TIFFGetField(tif_, TIFFTAG_IMAGELENGTH, &height_);
@@ -90,13 +90,13 @@ void TIFFImage::Open(const char* name) noexcept(false) {
     resolution_y_ = -1;
   }
   if (bits_per_sample_ != 16) {
-    throw std::runtime_error("Поддерживаются только 16-битные изображения");
+    throw std::runtime_error("Only 16-bit images are supported");
   }
   if (samples_per_pixel_ != 1) {
-    throw std::runtime_error("Поддерживаются только одноканальные изображения");
+    throw std::runtime_error("Only single-channel images are supported");
   }
   if (config_ != PLANARCONFIG_CONTIG) {
-    throw std::runtime_error("Поддерживаются только непрерывные плоскости");
+    throw std::runtime_error("Only continuous planes are supported");
   }
   image_ = new uint16_t[width_ * height_];
   for (size_t i = 0; i < height_; i++) {
@@ -118,7 +118,7 @@ void TIFFImage::Close() {
 void TIFFImage::Save(const char* name) {
   TIFF* tif = TIFFOpen(name, "w");
   if (tif == nullptr) {
-    throw std::runtime_error("Невозможно создать файл");
+    throw std::runtime_error("Yhe file cannot be created");
   }
   TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width_);
   TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height_);
@@ -177,7 +177,7 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
                   std::clamp(x, 0, (int)width_ - 1)];
     return image_[y * width_ + x];
   } else {
-    throw std::runtime_error("Изображение не загружено");
+    throw std::runtime_error("The image was not uploaded");
   }
 }
 
@@ -189,21 +189,21 @@ void TIFFImage::Set(const size_t x, const size_t y,
                     const uint16_t value) noexcept(false) {
   if ((width_ != 0u) && (height_ != 0u) && (image_ != nullptr)) {
     if (x >= width_ || y >= height_) {
-      throw std::runtime_error("Выход за границы изображения");
+      throw std::runtime_error("Outside the image boundaries");
     }
     image_[y * width_ + x] = value;
   } else {
-    throw std::runtime_error("Изображение не загружено");
+    throw std::runtime_error("The image was not uploaded");
   }
 }
 
 void TIFFImage::SetImage(const size_t width, const size_t height,
                          const uint16_t* image) noexcept(false) {
   if (width == 0 || height == 0) {
-    throw std::runtime_error("Размер изображения не может быть нулевым");
+    throw std::runtime_error("The image size cannot be zero");
   }
   if (image == nullptr) {
-    throw std::runtime_error("Изображение не может быть нулевым");
+    throw std::runtime_error("The image cannot be null");
   }
   if (width_ != width || height_ != height) {
     Clear();
@@ -256,7 +256,7 @@ void TIFFImage::FreeDeviceMemory() { cuda_mem_manager_.FreeMemory(); }
 
 void TIFFImage::CopyImageToDevice() {
   if (image_ == nullptr) {
-    throw std::runtime_error("Изображение не загружено");
+    throw std::runtime_error("The image was not uploaded");
   }
   cuda_mem_manager_.CopyImageToDevice(image_);
 }

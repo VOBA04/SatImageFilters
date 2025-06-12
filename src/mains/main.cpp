@@ -1,17 +1,22 @@
-#include <iostream>
 #include <filesystem>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
 #include "image_operation.h"
 #include "kernel.h"
 #include "tiff_image.h"
-#include <stdexcept>
-#include <string>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
 int main() {
+#ifdef _WIN32
   SetConsoleOutputCP(65001);
   SetConsoleCP(65001);
+#endif
   fs::path project_source_dir(PROJECT_SOURCE_DIR);
   if (!fs::exists(project_source_dir / "images")) {
     fs::create_directory(project_source_dir / "images");
