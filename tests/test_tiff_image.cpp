@@ -371,7 +371,10 @@ TEST(TIFFImageTest, SobelFilterGPU) {
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage sobel = img.SetKernel(kKernelSobel);
     TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel);
-    EXPECT_TRUE(sobel == sobel_cuda) << "Image: " << k;
+    EXPECT_TRUE(sobel == sobel_cuda) << "Image: " << k << std::endl
+                                     << "Sobel: " << std::endl
+                                     << sobel << "Sobel CUDA: " << std::endl
+                                     << sobel_cuda;
     TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
     EXPECT_TRUE(sobel == sobel_cuda_sep) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Sobel);
@@ -494,7 +497,7 @@ TEST(TIFFImageTest, CudaMemoryManagement) {
   }
   fs::path temp_dir = GetTempDir();
   CreateTestImage(temp_dir, 100, 100);
-  TIFFImage img(kTestImagePath);
+  TIFFImage img(temp_dir / kTestImage);
   img.Close();
   DeleteTempDir(temp_dir);
 }
