@@ -455,5 +455,40 @@ TEST(TIFFImageTest, CudaMemoryManagement) {
   }
   CreateTestImage(100, 100);
   TIFFImage img(kTestImagePath);
+  img.SetImagePatametersForDevice(ImageOperation::GaussianBlur, 3, 1.0);
+  img.AllocateDeviceMemory();
+  img.CopyImageToDevice();
+  TIFFImage blurred = img.GaussianBlurCuda(3, 1.0);
+  EXPECT_EQ(blurred.GetWidth(), img.GetWidth());
+  EXPECT_EQ(blurred.GetHeight(), img.GetHeight());
+  img.FreeDeviceMemory();
+  size_t free_memory = 0, total_memory = 0;
+  cudaError_t error = cudaMemGetInfo(&free_memory, &total_memory);
+  EXPECT_EQ(error, cudaSuccess)
+      << "Failed to get CUDA memory info: " << cudaGetErrorString(error);
+  EXPECT_GT(free_memory, 0) << "Free memory should be greater than zero.";
   fs::remove(kTestImagePath);
+}
+
+TEST(CudaMemManagerTest, BasicMemoryManagement) {
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
+  CudaMemManager mgr;
+  size_t width = 32, height = 32;
+  mgr.SetImageSize(width, height);
+  mgr.SetImageOperations(ImageOperation::GaussianBlur);
+  mgr.SetGaussianParameters(3, 1.0f);
+  EXPECT_NO_THROW(mgr.AllocateMemory());
+  EXPECT_TRUE(mgr.IsAllocated());
+  std::vector<uint16_t> src(width * height, 123);
+  std::vector<uint16_t> dst(width * height, 0);
+  EXPECT_NO_THROW(mgr.CopyImageToDevice(src.data()));
+  EXPECT_NO_THROW(mgr.CopyImageFromDevice(dst.data()));
+  EXPECT_NO_THROW(mgr.FreeMemory());
+  EXPECT_FALSE(mgr.IsAllocated());
+  EXPECT_NO_THROW(mgr.AllocateMemory());
+  EXPECT_TRUE(mgr.IsAllocated());
+  EXPECT_NO_THROW(mgr.FreeMemory());
 }
