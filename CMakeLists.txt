@@ -108,8 +108,6 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
 
-add_test(NAME unit_test COMMAND unit_tests)
-
 if(NOT MSVC)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         target_compile_options(unit_tests PRIVATE
@@ -122,7 +120,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
 target_link_libraries(speedtest TIFF::TIFF ${CUDA_LIBRARIES} cudart)
-target_link_libraries(unit_tests PRIVATE TIFF::TIFF ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY} ${OpenCV_LIBRARIES})
+target_link_libraries(unit_tests PRIVATE TIFF::TIFF gtest gtest_main ${OpenCV_LIBRARIES} pthread)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
