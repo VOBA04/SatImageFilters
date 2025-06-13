@@ -30,11 +30,30 @@ uint16_t* TIFFImage::AddAbsMtx(const int* mtx1, const int* mtx2, size_t height,
   return result;
 }
 
-TIFFImage::TIFFImage() {}
+TIFFImage::TIFFImage()
+    : tif_(nullptr),
+      width_(0),
+      height_(0),
+      samples_per_pixel_(1),
+      bits_per_sample_(16),
+      photo_metric_(PHOTOMETRIC_MINISBLACK),
+      resolution_unit_(RESUNIT_NONE),
+      config_(PLANARCONFIG_CONTIG),
+      photo_metric_enabled_(true),
+      resolution_unit_enabled_(true),
+      resolution_x_(0.0f),
+      resolution_y_(0.0f),
+      image_(nullptr),
+      cuda_mem_manager_() {
+}
 
-TIFFImage::TIFFImage(const char* name) noexcept(false) { Open(name); }
+TIFFImage::TIFFImage(const char* name) noexcept(false) {
+  Open(name);
+}
 
-TIFFImage::TIFFImage(const std::string& name) noexcept(false) { Open(name); }
+TIFFImage::TIFFImage(const std::string& name) noexcept(false) {
+  Open(name);
+}
 
 TIFFImage::TIFFImage(const std::filesystem::path& name) noexcept(false) {
   Open(name);
@@ -44,15 +63,20 @@ TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
                      uint16_t bits_per_sample, uint16_t photo_metric,
                      uint16_t resolution_unit, float resolution_x,
                      float resolution_y, uint16_t config)
-    : width_(width),
+    : tif_(nullptr),
+      width_(width),
       height_(height),
       samples_per_pixel_(samples_per_pixel),
       bits_per_sample_(bits_per_sample),
       photo_metric_(photo_metric),
       resolution_unit_(resolution_unit),
+      config_(config),
+      photo_metric_enabled_(true),
+      resolution_unit_enabled_(true),
       resolution_x_(resolution_x),
       resolution_y_(resolution_y),
-      config_(config) {
+      image_(new uint16_t[width * height]()),
+      cuda_mem_manager_() {
   image_ = new uint16_t[width_ * height_];
 }
 
@@ -151,7 +175,9 @@ void TIFFImage::Save(const char* name) {
   TIFFClose(tif);
 }
 
-void TIFFImage::Save(const std::string& name) { Save(name.c_str()); }
+void TIFFImage::Save(const std::string& name) {
+  Save(name.c_str());
+}
 
 void TIFFImage::Save(const std::filesystem::path& name) {
   Save(name.generic_string());
@@ -189,9 +215,13 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   }
 }
 
-size_t TIFFImage::GetWidth() const { return width_; }
+size_t TIFFImage::GetWidth() const {
+  return width_;
+}
 
-size_t TIFFImage::GetHeight() const { return height_; }
+size_t TIFFImage::GetHeight() const {
+  return height_;
+}
 
 void TIFFImage::Set(const size_t x, const size_t y,
                     const uint16_t value) noexcept(false) {
@@ -254,13 +284,17 @@ void TIFFImage::SetImagePatametersForDevice(ImageOperation operations,
   cuda_mem_manager_.SetImageOperations(operations);
 }
 
-void TIFFImage::AllocateDeviceMemory() { cuda_mem_manager_.AllocateMemory(); }
+void TIFFImage::AllocateDeviceMemory() {
+  cuda_mem_manager_.AllocateMemory();
+}
 
 void TIFFImage::ReallocateDeviceMemory() {
   cuda_mem_manager_.ReallocateMemory();
 }
 
-void TIFFImage::FreeDeviceMemory() { cuda_mem_manager_.FreeMemory(); }
+void TIFFImage::FreeDeviceMemory() {
+  cuda_mem_manager_.FreeMemory();
+}
 
 void TIFFImage::CopyImageToDevice() {
   if (image_ == nullptr) {

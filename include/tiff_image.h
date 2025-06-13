@@ -31,17 +31,23 @@
  */
 class TIFFImage {
  private:
-  TIFF* tif_ = nullptr;            ///< Указатель на объект TIFF.
-  size_t width_ = 0, height_ = 0;  ///< Ширина и высота изображения.
-  uint16_t samples_per_pixel_ = 0, bits_per_sample_ = 0, photo_metric_,
-           resolution_unit_, config_;  ///< Параметры изображения.
-  bool photo_metric_enabled_ = true,
-       resolution_unit_enabled_ = true;  ///< Флаги включения параметров.
-  float resolution_x_, resolution_y_;    ///< Разрешение по осям X и Y.
+  TIFF* tif_ = nullptr;             ///< Указатель на объект TIFF.
+  size_t width_ = 0;                ///< Ширина изображения.
+  size_t height_ = 0;               ///< Высота изображения.
+  uint16_t samples_per_pixel_ = 1;  ///< Количество каналов на пиксель.
+  uint16_t bits_per_sample_ = 16;   ///< Бит на канал.
+  uint16_t photo_metric_ =
+      PHOTOMETRIC_MINISBLACK;                ///< Фотометрическая интерпретация.
+  uint16_t resolution_unit_ = RESUNIT_NONE;  ///< Единица измерения разрешения.
+  uint16_t config_ = PLANARCONFIG_CONTIG;    ///< Конфигурация плоскостей.
+  bool photo_metric_enabled_ = true;         ///< Флаг включения фотометрии.
+  bool resolution_unit_enabled_ = true;  ///< Флаг включения единицы разрешения.
+  float resolution_x_ = 0.0f;            ///< Разрешение по оси X.
+  float resolution_y_ = 0.0f;            ///< Разрешение по оси Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
   CudaMemManager
-      cuda_mem_manager_;  ///< Менеджер памяти CUDA для обработки изображений.
+      cuda_mem_manager_{};  ///< Менеджер памяти CUDA для обработки изображений.
 
   /**
    * @brief Складывает абсолютные значения элементов двух матриц.
@@ -92,8 +98,8 @@ class TIFFImage {
   TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel = 1,
             uint16_t bits_per_sample = 16,
             uint16_t photo_metric = PHOTOMETRIC_MINISBLACK,
-            uint16_t resolution_unit = RESUNIT_NONE, float resolution_x = 0,
-            float resolution_y = 0, uint16_t config = PLANARCONFIG_CONTIG);
+            uint16_t resolution_unit = RESUNIT_NONE, float resolution_x = 0.0f,
+            float resolution_y = 0.0f, uint16_t config = PLANARCONFIG_CONTIG);
 
   /**
    * @brief Конструктор копирования.
