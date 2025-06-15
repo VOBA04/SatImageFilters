@@ -1,0 +1,10 @@
+[submodule "external/libtiff"]
+	path = external/libtiff
+	url = https://gitlab.com/libtiff/libtiff.git
+[submodule "external/opencv"]
+	path = external/opencv
+	url = https://github.com/opencv/opencv.git
+	branch = 4.x
+[submodule "external/googletest"]
+	path = external/googletest
+	url = https://github.com/google/googletest.git

@@ -30,7 +30,16 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 build_speedtest.sh
-generate_test_image.py
+
+external/*/build/
+external/*/CMakeCache.txt
+external/*/CMakeFiles/
+external/*/*.o
+external/*/*.a
+external/*/*.so
+external/*/*.lib
+external/*/*.dll
+external_build/
 
 # Prerequisites
 *.d
