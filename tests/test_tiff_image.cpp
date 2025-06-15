@@ -17,9 +17,6 @@
 #include "kernel.h"
 #include "tiff_image.h"
 
-const std::string kTestImagePath =
-    std::string(PROJECT_SOURCE_DIR) + "/tests/test_image.tiff";
-
 const std::string kTestImage("test_image.tiff");
 
 namespace fs = std::filesystem;
