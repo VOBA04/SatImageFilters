@@ -5,7 +5,36 @@ project(SatImageFilters LANGUAGES CXX CUDA)
 set(EXTERNAL_BUILD_DIR "${CMAKE_SOURCE_DIR}/external_build")
 file(MAKE_DIRECTORY ${EXTERNAL_BUILD_DIR})
 
-list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_BUILD_DIR}/libtiff_install ${EXTERNAL_BUILD_DIR}/opencv_install)
+list(APPEND CMAKE_PREFIX_PATH 
+    ${EXTERNAL_BUILD_DIR}/gtest_install
+    ${EXTERNAL_BUILD_DIR}/libtiff_install 
+    ${EXTERNAL_BUILD_DIR}/opencv_install
+)
+
+find_package(GTest QUIET)
+if(GTest_FOUND)
+    message(STATUS "Найден Google Test: ${GTEST_LIBRARIES}")
+else()
+    message(STATUS "Google Test не найден, выполняем сборку")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/googletest -B ${EXTERNAL_BUILD_DIR}/gtest_build
+                -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/gtest_install
+                -DBUILD_GMOCK=OFF
+                -DINSTALL_GTEST=ON
+        RESULT_VARIABLE GTEST_CONFIGURE_RESULT
+    )
+    if(NOT GTEST_CONFIGURE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось настроить Google Test")
+    endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --build ${EXTERNAL_BUILD_DIR}/gtest_build --target install
+        RESULT_VARIABLE GTEST_BUILD_RESULT
+    )
+    if(NOT GTEST_BUILD_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось собрать или установить Google Test")
+    endif()
+    find_package(GTest REQUIRED)
+endif()
 
 find_package(TIFF QUIET)
 if(TIFF_FOUND)
@@ -117,8 +146,6 @@ add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 enable_language(CUDA)
 find_package(Qt6 COMPONENTS Core Gui Widgets)
 
-include(GoogleTest)
-
 if(Qt6_FOUND)
     message(STATUS "Qt6 found, GUI target will be built")
     set(CMAKE_AUTOMOC ON)
@@ -163,7 +190,7 @@ add_executable(unit_tests ${TEST_SOURCES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
 target_link_libraries(speedtest PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
-target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF gtest gtest_main CUDA::cudart CUDA::cuda_driver)
+target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF GTest::gtest GTest::gtest_main CUDA::cudart CUDA::cuda_driver)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
