@@ -196,6 +196,23 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
+foreach(target ${PROJECT_NAME} speedtest unit_tests)
+    if(WIN32)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
+                $<TARGET_FILE_DIR:${target}>
+            COMMENT "Копирование OpenCV DLL для ${target}"
+        )
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
+                $<TARGET_FILE_DIR:${target}>
+            COMMENT "Копирование Google Test DLL для ${target}"
+        )
+    endif()
+endforeach()
+
 if(NOT MSVC)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         target_compile_options(unit_tests PRIVATE
