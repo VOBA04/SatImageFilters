@@ -13,8 +13,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <string>
+
+#if __cplusplus > 201402L
+#include <filesystem>
+#endif
 
 #include "cuda_mem_manager.h"
 #include "image_operation.h"
@@ -93,7 +96,9 @@ class TIFFImage {
    */
   explicit TIFFImage(const std::string& name) noexcept(false);
 
+#if __cplusplus > 201402L
   explicit TIFFImage(const std::filesystem::path& name) noexcept(false);
+#endif
 
   TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel = 1,
             uint16_t bits_per_sample = 16,
@@ -138,7 +143,9 @@ class TIFFImage {
    */
   void Open(const std::string& name) noexcept(false);
 
+#if __cplusplus > 201402L
   void Open(const std::filesystem::path& name) noexcept(false);
+#endif
 
   /**
    * @brief Закрывает файл с изображением.
@@ -176,7 +183,9 @@ class TIFFImage {
    * @param name Имя файла.
    * @throws std::runtime_error Если не удается создать или записать файл.
    */
+#if __cplusplus > 201402L
   void Save(const std::filesystem::path& name);
+#endif
 
   /**
    * @brief Очищает изображение.

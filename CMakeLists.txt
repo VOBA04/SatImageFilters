@@ -5,28 +5,17 @@ project(SatImageFilters LANGUAGES CXX CUDA)
 set(EXTERNAL_BUILD_DIR "${CMAKE_SOURCE_DIR}/external_build")
 file(MAKE_DIRECTORY ${EXTERNAL_BUILD_DIR})
 
-if(WIN32)
-    set(LIBTIFF_LIB "${EXTERNAL_BUILD_DIR}/libtiff_install/lib/tiff.lib")
-    set(OPENCV_CORE_LIB "${EXTERNAL_BUILD_DIR}/opencv_install/lib/opencv_core*.lib")
-else()
-    set(LIBTIFF_LIB "${EXTERNAL_BUILD_DIR}/libtiff_install/lib/libtiff.so" "${EXTERNAL_BUILD_DIR}/libtiff_install/lib/libtiff.a")
-    set(OPENCV_CORE_LIB "${EXTERNAL_BUILD_DIR}/opencv_install/lib/libopencv_core.so" "${EXTERNAL_BUILD_DIR}/opencv_install/lib/libopencv_core.a")
-endif()
+list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_BUILD_DIR}/libtiff_install ${EXTERNAL_BUILD_DIR}/opencv_install)
 
-set(LIBTIFF_FOUND FALSE)
-foreach(LIB_PATH ${LIBTIFF_LIB})
-    if(EXISTS ${LIB_PATH})
-        set(LIBTIFF_FOUND TRUE)
-        message(STATUS "Found libtiff: ${LIB_PATH}")
-        break()
-    endif()
-endforeach()
-if(LIBTIFF_FOUND)
-    message(STATUS "libtiff уже установлен, пропускаем сборку")
+find_package(TIFF QUIET)
+if(TIFF_FOUND)
+    message(STATUS "Найден libtiff: ${TIFF_LIBRARIES}")
 else()
     message(STATUS "libtiff не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/libtiff -B ${EXTERNAL_BUILD_DIR}/libtiff_build -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/libtiff_install
+        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/libtiff -B ${EXTERNAL_BUILD_DIR}/libtiff_build
+                -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/libtiff_install
+                -DBUILD_SHARED_LIBS=ON
         RESULT_VARIABLE LIBTIFF_CONFIGURE_RESULT
     )
     if(NOT LIBTIFF_CONFIGURE_RESULT EQUAL 0)
@@ -39,22 +28,17 @@ else()
     if(NOT LIBTIFF_BUILD_RESULT EQUAL 0)
         message(FATAL_ERROR "Не удалось собрать или установить libtiff")
     endif()
+    find_package(TIFF REQUIRED)
 endif()
 
-set(OPENCV_FOUND FALSE)
-foreach(LIB_PATH ${OPENCV_CORE_LIB})
-    if(EXISTS ${LIB_PATH})
-        set(OPENCV_FOUND TRUE)
-        message(STATUS "Found OpenCV: ${LIB_PATH}")
-        break()
-    endif()
-endforeach()
-if(OPENCV_FOUND)
-    message(STATUS "OpenCV уже установлен, пропускаем сборку")
+find_package(OpenCV QUIET COMPONENTS core imgproc highgui imgcodecs)
+if(OpenCV_FOUND)
+    message(STATUS "Найден OpenCV: ${OpenCV_LIBS}")
 else()
     message(STATUS "OpenCV не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencv -B ${EXTERNAL_BUILD_DIR}/opencv_build -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencv_install
+        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencv -B ${EXTERNAL_BUILD_DIR}/opencv_build
+                -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencv_install
                 -DWITH_CUDA=OFF
                 -DBUILD_opencv_core=ON
                 -DBUILD_opencv_imgproc=ON
@@ -80,9 +64,8 @@ else()
     if(NOT OPENCV_BUILD_RESULT EQUAL 0)
         message(FATAL_ERROR "Не удалось собрать или установить OpenCV")
     endif()
+    find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
 endif()
-
-list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_BUILD_DIR}/libtiff_install ${EXTERNAL_BUILD_DIR}/opencv_install)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -103,15 +86,22 @@ set(INCLUDE_GUI_DIR "${INCLUDE_DIR}/gui")
 set(MAINS_DIR "${SOURCE_DIR}/mains")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CUDA_VERSION "12.8" CACHE STRING "CUDA Toolkit version (e.g., 10.2, 11.4, 12.8, or AUTO)")
+set(CUDA_VERSION "10.2" CACHE STRING "CUDA Toolkit version (e.g., 10.2, 10.4, 11.4, 12.8, or AUTO)")
 if(CUDA_VERSION STREQUAL "10.2")
     set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.2")
+    set(CMAKE_CUDA_ARCHITECTURES 30 50 52 60 61 70 72 75)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+elseif(CUDA_VERSION STREQUAL "10.4")
+    set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.4")
     set(CMAKE_CUDA_ARCHITECTURES 30 50 52 60 61 70 72 75)
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 elseif(CUDA_VERSION STREQUAL "11.4")
     set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.4")
     set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 elseif(CUDA_VERSION STREQUAL "12.8")
     if(WIN32)
         set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8")
@@ -119,12 +109,17 @@ elseif(CUDA_VERSION STREQUAL "12.8")
         set(CUDAToolkit_ROOT "/usr/local/cuda-12.8")
     endif()
     set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 89 90)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 else()
-    # Автоматический выбор
     if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11.0")
         set(CMAKE_CUDA_ARCHITECTURES 30 50 52 60 61 70 72 75)
+        set(CMAKE_CUDA_STANDARD 14)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     else()
         set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 89 90)
+        set(CMAKE_CUDA_STANDARD 17)
+        set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     endif()
 endif()
 
@@ -137,13 +132,9 @@ add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
-find_package(TIFF REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
 find_package(Qt6 COMPONENTS Core Gui Widgets)
 
 include(GoogleTest)
-
-add_test(NAME unit_tests COMMAND unit_tests)
 
 if(Qt6_FOUND)
     message(STATUS "Qt6 found, GUI target will be built")
@@ -182,11 +173,24 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${MAINS_DIR}/main.cpp")
 file(GLOB SPEEDTEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${MAINS_DIR}/speedtest.cpp")
-file(GLOB TEST_SOURCES "${TESTS_DIR}/*.cpp" "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
+file(GLOB TEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${TESTS_DIR}/test_kernel.cpp")
+if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
+    list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image.cpp")
+else()
+    list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image_old.cpp")
+endif()
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
+target_link_libraries(speedtest PRIVATE ${OpenCV_LIBS} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
+target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF gtest gtest_main ${CUDA_LIBRARIES} cudart)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 if(NOT MSVC)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -198,13 +202,7 @@ if(NOT MSVC)
     endif()
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
-target_link_libraries(speedtest PRIVATE ${OpenCV_LIBS} TIFF::TIFF ${CUDA_LIBRARIES} cudart)
-target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF gtest gtest_main)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_test(NAME unit_tests COMMAND unit_tests)
 
 if(DEFINED ENV{GITHUB_ACTIONS})
     set(EXCLUDE_CUDA "*/src/*.cu")
@@ -212,9 +210,7 @@ else()
     set(EXCLUDE_CUDA "")
 endif()
 
-if(WIN32)
-    message(WARNING "Code coverage is not supported on Windows yet")
-else()
+if(NOT WIN32)
     add_custom_target(coverage
         COMMAND lcov --zerocounters --directory .
         COMMAND ${CMAKE_COMMAND} --build . --target unit_tests

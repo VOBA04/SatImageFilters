@@ -29,7 +29,7 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
-build_speedtest.sh
+CMakeSettings.json
 
 external/*/build/
 external/*/CMakeCache.txt
