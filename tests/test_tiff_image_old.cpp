@@ -13,7 +13,7 @@
 #include <string>
 
 #ifdef _WIN32
-#include <windows/h>
+#include <windows.h>
 #else
 #include <dirent.h>
 #include <sys/stat.h>
@@ -84,8 +84,8 @@ void CreateTestImage(std::string temp_dir, int width, int height,
       break;
     case 6:
       // Белый круг в центре на чёрном фоне
-      cv::circle(img, cv::Point(width / 2, height / 2),
-                 std::min(width, height) / 4, cv::Scalar(65535), -1);
+      cv::circle(img, cv::Point(width / 2, height / 2), min(width, height) / 4,
+                 cv::Scalar(65535), -1);
       break;
     case 7:
       // Один белый пиксель в центре, остальное чёрное
@@ -128,7 +128,7 @@ inline std::string GetBaseTempPath() {
     std::cerr << "Failed to get temporary directory path" << std::endl;
     exit(1);
   }
-  return std::string(temp_path)
+  return std::string(temp_path);
 #else
   const char* tmpdir = getenv("TMPDIR");
   if (!tmpdir) {
@@ -147,7 +147,8 @@ inline std::string GetTempDir() {
   temp_dir += "\\test_temp_" + std::to_string(dis(gen));
   if (!CreateDirectoryA(temp_dir.c_str(), nullptr)) {
   std:
-    cerr << "Failed to create temporary directory: " << temp_dir << std::endl;
+    std::cerr << "Failed to create temporary directory: " << temp_dir
+              << std::endl;
     exit(1);
   }
 #else

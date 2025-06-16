@@ -9,15 +9,17 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <exception>
+#include <fstream>
 #include <initializer_list>
 #include <iostream>
 #include <string>
-#include <cmath>
-#include <fstream>
+#if __cplusplus > 201402L
 #include <filesystem>
+#endif
 
 /**
  * @brief Класс исключений, связанных с @ref Kernel "Kernel".
@@ -34,18 +36,14 @@ class KernelException : public std::exception {
    *
    * @param message Сообщение, описывающее ошибку.
    */
-  explicit KernelException(const std::string& message)
-      : message_{message} {
-  }
+  explicit KernelException(const std::string& message) : message_{message} {}
 
   /**
    * @brief Получить сообщение об ошибке.
    *
    * @return Указатель на строку с описанием ошибки.
    */
-  const char* what() const noexcept override {
-    return message_.c_str();
-  }
+  const char* what() const noexcept override { return message_.c_str(); }
 };
 
 /**
@@ -334,23 +332,19 @@ class Kernel {
    * @throws KernelException Если не удалось открыть файл или произошла ошибка
    * чтения.
    */
+#if __cplusplus > 201402L
   void SetFromFile(const std::filesystem::path& filename);
+#endif
 };
 
 template <typename T>
 Kernel<T>::Kernel()
-    : height_(0),
-      width_(0),
-      kernel_(nullptr),
-      rotatable_(false) {
-}
+    : height_(0), width_(0), kernel_(nullptr), rotatable_(false) {}
 
 template <typename T>
 Kernel<T>::Kernel(const size_t height, const size_t width, T** kernel,
                   bool rotatable)
-    : height_{height},
-      width_{width},
-      rotatable_(rotatable) {
+    : height_{height}, width_{width}, rotatable_(rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
@@ -376,9 +370,7 @@ Kernel<T>::Kernel(const size_t height, const size_t width, T** kernel,
 template <typename T>
 Kernel<T>::Kernel(const size_t height, const size_t width, T* kernel,
                   bool rotatable)
-    : height_{height},
-      width_{width},
-      rotatable_(rotatable) {
+    : height_{height}, width_{width}, rotatable_(rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
@@ -394,9 +386,7 @@ template <typename T>
 Kernel<T>::Kernel(const size_t height, const size_t width,
                   const std::initializer_list<std::initializer_list<T>> kernel,
                   bool rotatable)
-    : height_{height},
-      width_{width},
-      rotatable_(rotatable) {
+    : height_{height}, width_{width}, rotatable_(rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
@@ -432,9 +422,7 @@ Kernel<T>::Kernel(const Kernel& other)
 
 template <typename T>
 Kernel<T>::Kernel(const size_t height, const size_t width, bool rotatable)
-    : height_{height},
-      width_{width},
-      rotatable_(rotatable) {
+    : height_{height}, width_{width}, rotatable_(rotatable) {
   if ((height % 2) == 0u || (width % 2) == 0u) {
     throw KernelException(
         "Неверный размер ядра. Высота и ширина должны быть нечетными");
@@ -685,10 +673,12 @@ void Kernel<T>::SetFromFile(const std::string& filename) {
   file.close();
 }
 
+#if __cplusplus > 201402L
 template <typename T>
 inline void Kernel<T>::SetFromFile(const std::filesystem::path& filename) {
   SetFromFile(filename.generic_string());
 }
+#endif
 
 /**
  * @brief Ядро оператора Собеля.
