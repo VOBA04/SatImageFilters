@@ -107,6 +107,8 @@ else()
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets")
 endif()
 
+
+
 set(SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
@@ -175,7 +177,7 @@ include_directories(${CUDAToolkit_INCLUDE_DIRS})
 include_directories(${TIFF_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${MAINS_DIR}/main.cpp")
+file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
 file(GLOB SPEEDTEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${MAINS_DIR}/speedtest.cpp")
 file(GLOB TEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${TESTS_DIR}/test_kernel.cpp")
 if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
@@ -184,19 +186,22 @@ else()
     list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image_old.cpp")
 endif()
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES} "${MAINS_DIR}/main.cpp")
 add_executable(speedtest ${SPEEDTEST_SOURCES})
 add_executable(unit_tests ${TEST_SOURCES})
+add_executable(benchmark_gpu ${SOURCES} "${MAINS_DIR}/benchmark_gpu.cpp")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
 target_link_libraries(speedtest PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
 target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF GTest::gtest GTest::gtest_main CUDA::cudart CUDA::cuda_driver)
+target_link_libraries(benchmark_gpu PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(benchmark_gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-foreach(target ${PROJECT_NAME} speedtest unit_tests)
+foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
     if(WIN32)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
