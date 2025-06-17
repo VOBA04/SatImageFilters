@@ -15,7 +15,7 @@ void CommandLineParser::AddArgument(const std::string& long_name,
   if (!long_name.empty()) {
     arguments_["--" + long_name] = arg;
     if (short_name == '\0') {
-      argument_order_.push_back("-" + std::string(1, short_name));
+      argument_order_.push_back("--" + long_name);
     }
   }
 }
