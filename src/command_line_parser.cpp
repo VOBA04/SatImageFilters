@@ -26,11 +26,10 @@ void CommandLineParser::Parse(int argc, char* argv[]) {
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg.substr(0, 2) == "--") {
-      std::string option = arg.substr(2);
-      if (option.empty()) {
+      if (arg.substr(2).empty()) {
         throw std::runtime_error("Invalid argument: " + arg);
       }
-      auto it = arguments_.find(option);
+      auto it = arguments_.find(arg);
       if (it == arguments_.end()) {
         throw std::runtime_error("Unknown argument: " + arg);
       }
@@ -40,15 +39,13 @@ void CommandLineParser::Parse(int argc, char* argv[]) {
         if (i + 1 >= argc) {
           throw std::runtime_error("Missing value for argument: " + arg);
         }
-        it->second.value = argv[++i];
+        it->second.value = argv[i + 1];
       }
     } else if (arg[0] == '-') {
       if (arg.length() != 2) {
         throw std::runtime_error("Invalid short argument: " + arg);
       }
-      char option = arg[1];
-      std::string option_str(1, option);
-      auto it = arguments_.find(option_str);
+      auto it = arguments_.find(arg);
       if (it == arguments_.end()) {
         throw std::runtime_error("Unknown argument: " + arg);
       }
@@ -58,7 +55,7 @@ void CommandLineParser::Parse(int argc, char* argv[]) {
         if (i + 1 >= argc) {
           throw std::runtime_error("Missing value for argument: " + arg);
         }
-        it->second.value = argv[++i];
+        it->second.value = argv[i + 1];
       }
     } else {
       positional_args_.push_back(arg);
@@ -72,7 +69,13 @@ void CommandLineParser::Parse(int argc, char* argv[]) {
 }
 
 std::string CommandLineParser::Get(const std::string& name) const {
-  auto it = arguments_.find(name);
+  std::string arg;
+  if (name.length() == 1) {
+    arg = "-" + name;
+  } else {
+    arg = "--" + name;
+  }
+  auto it = arguments_.find(arg);
   if (it == arguments_.end()) {
     throw std::runtime_error("Argument not found: " + name);
   }
@@ -80,7 +83,13 @@ std::string CommandLineParser::Get(const std::string& name) const {
 }
 
 bool CommandLineParser::Has(const std::string& name) const {
-  auto it = arguments_.find(name);
+  std::string arg;
+  if (name.length() == 1) {
+    arg = "-" + name;
+  } else {
+    arg = "--" + name;
+  }
+  auto it = arguments_.find(arg);
   if (it == arguments_.end()) {
     throw std::runtime_error("Argument not found: " + name);
   }
