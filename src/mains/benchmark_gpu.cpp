@@ -23,6 +23,7 @@ std::ostream& operator<<(std::ostream& out, Functions f) {
     case Functions::GaussSep:
       return (out << "GaussSep");
   }
+  return out;
 }
 
 Functions CheckFunctionArg(std::string arg) {
@@ -132,7 +133,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < count; i++) {
       switch (function) {
         case Functions::Sobel:
-          image.SetKernelCuda(kKernelPrewitt);
+          image.SetKernelCuda(kKernelSobel);
           break;
         case Functions::SobelSep:
           image.SetKernelSobelSepCuda();
@@ -151,6 +152,8 @@ int main(int argc, char* argv[]) {
           break;
       }
     }
+    image.FreeDeviceMemory();
+    std::cout << "END" << std::endl;
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << "\n\n";
     std::cerr << parser.Help();
