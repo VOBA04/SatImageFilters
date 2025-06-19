@@ -100,8 +100,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd /W2 /EHsc")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=/W2,/EHsc -Wno-deprecated-gpu-targets")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd /W2 /EHsc /Zc:__cplusplus")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=/W2,/EHsc,/Zc:__cplusplus -Wno-deprecated-gpu-targets")
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -pedantic")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets")
@@ -237,11 +237,7 @@ if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
     endforeach()
 endif()
 
-if(MSVC)
-    target_compile_options(common PRIVATE
-            $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
-     )
-else()
+if(NOT MSVC)
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         target_compile_options(unit_tests PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
