@@ -212,31 +212,29 @@ target_link_libraries(benchmark_gpu PRIVATE common)
 
 foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
     if(WIN32)
-        if(EXISTS "${EXTERNAL_BUILD_DIR}/libtiff_install/lib")
-            add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${EXTERNAL_BUILD_DIR}/libtiff_install/lib"
-                    $<TARGET_FILE_DIR:${target}>
-                COMMENT "Копирование TIFF DLL для ${target}"
-            )
+         if(EXISTS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin")
+            file(GLOB TIFF_DLLS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin/*.dll")
+            foreach(dll ${TIFF_DLLS})
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${dll}"
+                        $<TARGET_FILE_DIR:${target}>
+                    COMMENT "Копирование TIFF DLL (${dll}) для ${target}"
+                )
+            endforeach()
         endif()
     endif()
 endforeach()
 if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
-    add_custom_command(TARGET unit_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
-            $<TARGET_FILE_DIR:unit_tests>
-        COMMENT "Копирование OpenCV DLL для unit_tests"
-    )
-endif()
-if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/gtest_install/lib")
-    add_custom_command(TARGET unit_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
-            $<TARGET_FILE_DIR:unit_tests>
-        COMMENT "Копирование Google Test DLL для unit_tests"
-    )
+    file(GLOB OPENCV_DLLS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin/*.dll")
+    foreach(dll ${OPENCV_DLLS})
+        add_custom_command(TARGET unit_tests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${dll}"
+                $<TARGET_FILE_DIR:unit_tests>
+            COMMENT "Копирование OpenCV DLL (${dll}) для unit_tests"
+        )
+    endforeach()
 endif()
 
 if(MSVC)
