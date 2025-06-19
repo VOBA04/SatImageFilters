@@ -36,6 +36,7 @@ else()
     find_package(GTest REQUIRED)
 endif()
 
+set(TIFF_LOCAL 0)
 find_package(TIFF QUIET)
 if(TIFF_FOUND)
     message(STATUS "Найден libtiff: ${TIFF_LIBRARIES}")
@@ -58,8 +59,10 @@ else()
         message(FATAL_ERROR "Не удалось собрать или установить libtiff")
     endif()
     find_package(TIFF REQUIRED)
+    set(TIFF_LOCAL 1)
 endif()
 
+set(OpenCV_LOCAL 0)
 find_package(OpenCV QUIET COMPONENTS core imgproc highgui imgcodecs)
 if(OpenCV_FOUND)
     message(STATUS "Найден OpenCV: ${OpenCV_LIBS}")
@@ -94,6 +97,7 @@ else()
         message(FATAL_ERROR "Не удалось собрать или установить OpenCV")
     endif()
     find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
+    set(OpenCV_LOCAL 1)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -178,47 +182,64 @@ include_directories(${TIFF_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
-file(GLOB SPEEDTEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${MAINS_DIR}/speedtest.cpp")
-file(GLOB TEST_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${TESTS_DIR}/test_kernel.cpp")
+add_library(common STATIC ${SOURCES})
+target_include_directories(common PUBLIC
+    ${SOURCE_DIR}
+    ${INCLUDE_DIR}
+    ${CUDAToolkit_INCLUDE_DIRS}
+    ${TIFF_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(common PUBLIC
+    TIFF::TIFF 
+    CUDA::cudart 
+    CUDA::cuda_driver
+)
+set_target_properties(common PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp")
 if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
     list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image.cpp")
 else()
     list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image_old.cpp")
 endif()
 
-add_executable(${PROJECT_NAME} ${SOURCES} "${MAINS_DIR}/main.cpp")
-add_executable(speedtest ${SPEEDTEST_SOURCES})
+add_executable(${PROJECT_NAME} "${MAINS_DIR}/main.cpp")
+add_executable(speedtest "${MAINS_DIR}/speedtest.cpp")
 add_executable(unit_tests ${TEST_SOURCES})
-add_executable(benchmark_gpu ${SOURCES} "${MAINS_DIR}/benchmark_gpu.cpp")
+add_executable(benchmark_gpu "${MAINS_DIR}/benchmark_gpu.cpp")
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
-target_link_libraries(speedtest PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
-target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} TIFF::TIFF GTest::gtest GTest::gtest_main CUDA::cudart CUDA::cuda_driver)
-target_link_libraries(benchmark_gpu PRIVATE ${OpenCV_LIBS} TIFF::TIFF CUDA::cudart CUDA::cuda_driver)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(speedtest PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(benchmark_gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+target_link_libraries(${PROJECT_NAME} PRIVATE common)
+target_link_libraries(speedtest PRIVATE common)
+target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtest_main common)
+target_link_libraries(benchmark_gpu PRIVATE common)
 
 foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
     if(WIN32)
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
-                $<TARGET_FILE_DIR:${target}>
-            COMMENT "Копирование OpenCV DLL для ${target}"
-        )
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
-                $<TARGET_FILE_DIR:${target}>
-            COMMENT "Копирование Google Test DLL для ${target}"
-        )
+        if(OpenCV_LOCAL EQUAL 1)
+            add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
+                    $<TARGET_FILE_DIR:${target}>
+                COMMENT "Копирование OpenCV DLL для ${target}"
+            )
+        endif()
+        if(TIFF_LOCAL EQUAL 1)
+            add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
+                    $<TARGET_FILE_DIR:${target}>
+                COMMENT "Копирование Google Test DLL для ${target}"
+            )
+        endif()
     endif()
 endforeach()
 
-if(NOT MSVC)
+if(MSVC)
+    target_compile_options(common PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
+     )
+else()
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         target_compile_options(unit_tests PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:--coverage;-fprofile-arcs;-ftest-coverage>
