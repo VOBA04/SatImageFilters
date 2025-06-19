@@ -34,17 +34,18 @@ elif not os.path.isdir(output_dir):
 filters = ["Sobel", "SobelSep", "Prewitt", "PrewittSep"]
 sizes = [
     "10x10",
-    "10x20",
-    "20x10",
     "100x100",
-    # "100x500",
-    # "500x100",
-    # "500x500",
-    # "1000x1000",
-    # "2000x2000",
-    # "3000x3000",
+    "500x500",
+    "1000x1000",
+    "2000x2000",
+    "3000x3000",
+    "4000x4000",
+    "5000x5000",
+    "10000x10000",
 ]
-counts = ["1", "2", "5", "10", "20", "50", "100"]
+counts = ["1", "2", "5", "10", "50", "100", "1000"]
+
+iterations = len(filters) * len(sizes) * len(counts)
 
 output_excel = os.path.join(
     output_dir,
@@ -106,13 +107,15 @@ def parse_nvprof_output(output, f, s, c):
 
 with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
     workbook = writer.book
+    iteration = 0
     for f in filters:
         for s in sizes:
             total_times = []
             count_values = []
             for c in counts:
+                iteration += 1
                 command = f"nvprof --csv --trace gpu {executable} -f {f} -s {s} -c {c}"
-                print(f"Выполняется: {command}")
+                print(f"[{iteration}/{iterations}] Выполняется: {command}")
                 try:
                     result = subprocess.run(
                         command, shell=True, capture_output=True, text=True
