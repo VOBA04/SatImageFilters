@@ -36,7 +36,6 @@ else()
     find_package(GTest REQUIRED)
 endif()
 
-set(TIFF_LOCAL 0)
 find_package(TIFF QUIET)
 if(TIFF_FOUND)
     message(STATUS "Найден libtiff: ${TIFF_LIBRARIES}")
@@ -59,10 +58,8 @@ else()
         message(FATAL_ERROR "Не удалось собрать или установить libtiff")
     endif()
     find_package(TIFF REQUIRED)
-    set(TIFF_LOCAL 1)
 endif()
 
-set(OpenCV_LOCAL 0)
 find_package(OpenCV QUIET COMPONENTS core imgproc highgui imgcodecs)
 if(OpenCV_FOUND)
     message(STATUS "Найден OpenCV: ${OpenCV_LIBS}")
@@ -97,7 +94,6 @@ else()
         message(FATAL_ERROR "Не удалось собрать или установить OpenCV")
     endif()
     find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
-    set(OpenCV_LOCAL 1)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -216,24 +212,32 @@ target_link_libraries(benchmark_gpu PRIVATE common)
 
 foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
     if(WIN32)
-        if(OpenCV_LOCAL EQUAL 1)
+        if(EXISTS "${EXTERNAL_BUILD_DIR}/libtiff_install/lib")
             add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
+                    "${EXTERNAL_BUILD_DIR}/libtiff_install/lib"
                     $<TARGET_FILE_DIR:${target}>
-                COMMENT "Копирование OpenCV DLL для ${target}"
-            )
-        endif()
-        if(TIFF_LOCAL EQUAL 1)
-            add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
-                    $<TARGET_FILE_DIR:${target}>
-                COMMENT "Копирование Google Test DLL для ${target}"
+                COMMENT "Копирование TIFF DLL для ${target}"
             )
         endif()
     endif()
 endforeach()
+if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
+    add_custom_command(TARGET unit_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin"
+            $<TARGET_FILE_DIR:unit_tests>
+        COMMENT "Копирование OpenCV DLL для unit_tests"
+    )
+endif()
+if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/gtest_install/lib")
+    add_custom_command(TARGET unit_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${EXTERNAL_BUILD_DIR}/gtest_install/lib"
+            $<TARGET_FILE_DIR:unit_tests>
+        COMMENT "Копирование Google Test DLL для unit_tests"
+    )
+endif()
 
 if(MSVC)
     target_compile_options(common PRIVATE
