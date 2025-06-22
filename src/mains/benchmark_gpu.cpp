@@ -46,9 +46,13 @@ std::pair<size_t, size_t> CheckSizeArg(std::string arg) {
   return std::pair<size_t, size_t>(h, w);
 }
 
-size_t CheckGaussSize(std::string arg) { return std::stoi(arg); }
+size_t CheckGaussSize(std::string arg) {
+  return std::stoi(arg);
+}
 
-float ChechGaussSigma(std::string arg) { return std::stof(arg); }
+float ChechGaussSigma(std::string arg) {
+  return std::stof(arg);
+}
 
 size_t ChechCountArg(std::string arg) {
   int count = std::stoi(arg);
@@ -82,8 +86,9 @@ int main(int argc, char* argv[]) {
     }
     if ((parser.Get("function") == "" && parser.Get("f") == "") ||
         (parser.Get("size") == "" && parser.Get("s") == "") ||
-        (parser.Get("count") == "" && parser.Get("c") == ""))
+        (parser.Get("count") == "" && parser.Get("c") == "")) {
       throw std::invalid_argument("Specify all the necessary arguments");
+    }
     Functions function =
         CheckFunctionArg(parser.Get("function") != "" ? parser.Get("function")
                                                       : parser.Get("f"));
@@ -94,8 +99,9 @@ int main(int argc, char* argv[]) {
     size_t gauss_size = 0;
     float sigma = 0;
     if (function == Functions::Gauss || function == Functions::GaussSep) {
-      if (parser.Get("gauss_size") == "" || parser.Get("gauss_sigma") == "")
+      if (parser.Get("gauss_size") == "" || parser.Get("gauss_sigma") == "") {
         throw std::invalid_argument("Specify all the necessary arguments");
+      }
       gauss_size = CheckGaussSize(parser.Get("gauss_size"));
       sigma = ChechGaussSigma(parser.Get("gauss_sigma"));
     }
@@ -130,7 +136,7 @@ int main(int argc, char* argv[]) {
     }
     image.AllocateDeviceMemory();
     image.CopyImageToDevice();
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
       switch (function) {
         case Functions::Sobel:
           image.SetKernelCuda(kKernelSobel);
