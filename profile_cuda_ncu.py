@@ -1,3 +1,4 @@
+import locale
 import os
 import subprocess
 import sys
@@ -7,6 +8,8 @@ from io import StringIO
 import pandas as pd
 from openpyxl.chart import LineChart, Reference
 from openpyxl.utils.dataframe import dataframe_to_rows
+
+locale.setlocale(locale.LC_NUMERIC, "C")
 
 if len(sys.argv) != 3:
     print(
@@ -98,7 +101,7 @@ def parse_ncu_output(output, f, s, c):
 
         total_time = 0.0
         if not duration_rows.empty:
-            total_time = duration_rows["Metric Value"].sum() 
+            total_time = duration_rows["Metric Value"].sum()
             unit = duration_rows["Metric Unit"].iloc[0]
             if pd.notna(total_time):
                 total_time = convert_to_ms(total_time, unit)
@@ -134,7 +137,7 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
             count_values = []
             for c in counts:
                 iteration += 1
-                command = f"LC_NUMERIC=C ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
+                command = f"ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
                 print(f"[{iteration}/{iterations}] Выполняется: {command}")
                 try:
                     result = subprocess.run(
