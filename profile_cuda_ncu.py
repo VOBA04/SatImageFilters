@@ -115,8 +115,6 @@ def parse_ncu_output(output, f, s, c):
 
         total_time = 0.0
         if not duration_rows.empty:
-            print(f"Найдено строк для gpu__time_duration.sum: {len(duration_rows)}")
-            print(f"Значения Metric Value: {duration_rows['Metric Value'].tolist()}")
             total_time = duration_rows[
                 "Metric Value"
             ].sum()  # Суммируем время всех запусков
