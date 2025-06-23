@@ -44,11 +44,16 @@ TIFFImage::TIFFImage()
       resolution_x_(0.0f),
       resolution_y_(0.0f),
       image_(nullptr),
-      cuda_mem_manager_() {}
+      cuda_mem_manager_() {
+}
 
-TIFFImage::TIFFImage(const char* name) noexcept(false) { Open(name); }
+TIFFImage::TIFFImage(const char* name) noexcept(false) {
+  Open(name);
+}
 
-TIFFImage::TIFFImage(const std::string& name) noexcept(false) { Open(name); }
+TIFFImage::TIFFImage(const std::string& name) noexcept(false) {
+  Open(name);
+}
 
 #if __cplusplus > 201402L
 TIFFImage::TIFFImage(const std::filesystem::path& name) noexcept(false) {
@@ -174,7 +179,9 @@ void TIFFImage::Save(const char* name) {
   TIFFClose(tif);
 }
 
-void TIFFImage::Save(const std::string& name) { Save(name.c_str()); }
+void TIFFImage::Save(const std::string& name) {
+  Save(name.c_str());
+}
 
 #if __cplusplus > 201402L
 void TIFFImage::Save(const std::filesystem::path& name) {
@@ -214,9 +221,13 @@ uint16_t TIFFImage::Get(const int x, const int y) const noexcept(false) {
   }
 }
 
-size_t TIFFImage::GetWidth() const { return width_; }
+size_t TIFFImage::GetWidth() const {
+  return width_;
+}
 
-size_t TIFFImage::GetHeight() const { return height_; }
+size_t TIFFImage::GetHeight() const {
+  return height_;
+}
 
 void TIFFImage::Set(const size_t x, const size_t y,
                     const uint16_t value) noexcept(false) {
@@ -279,13 +290,17 @@ void TIFFImage::SetImagePatametersForDevice(ImageOperation operations,
   cuda_mem_manager_.SetImageOperations(operations);
 }
 
-void TIFFImage::AllocateDeviceMemory() { cuda_mem_manager_.AllocateMemory(); }
+void TIFFImage::AllocateDeviceMemory() {
+  cuda_mem_manager_.AllocateMemory();
+}
 
 void TIFFImage::ReallocateDeviceMemory() {
   cuda_mem_manager_.ReallocateMemory();
 }
 
-void TIFFImage::FreeDeviceMemory() { cuda_mem_manager_.FreeMemory(); }
+void TIFFImage::FreeDeviceMemory() {
+  cuda_mem_manager_.FreeMemory();
+}
 
 void TIFFImage::CopyImageToDevice() {
   if (image_ == nullptr) {
@@ -310,9 +325,9 @@ bool TIFFImage::operator==(const TIFFImage& other) const {
   for (size_t i = 0; i < height_; i++) {
     for (size_t j = 0; j < width_; j++) {
       if (image_[i * width_ + j] != other.image_[i * width_ + j]) {
-        /*std::cerr << "Images differ at (" << i << ", " << j
+        std::cerr << "Images differ at (" << i << ", " << j
                   << "): " << image_[i * width_ + j] << " vs "
-                  << other.image_[i * width_ + j] << std::endl;*/
+                  << other.image_[i * width_ + j] << std::endl;
         return false;
       }
     }

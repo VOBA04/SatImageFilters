@@ -300,6 +300,7 @@ class TIFFImage {
    * @return Новое изображение с примененным ядром.
    */
   TIFFImage SetKernelCuda(const Kernel<int>& kernel,
+                          const bool shared_memory = true,
                           const bool rotate = true) const;
 
   /**
@@ -332,7 +333,7 @@ class TIFFImage {
    *
    * @return Новое изображение с примененным разделенным оператором Собеля.
    */
-  TIFFImage SetKernelSobelSepCuda() const;
+  TIFFImage SetKernelSobelSepCuda(const bool shared_memory = true) const;
 
   /**
    * @brief Применяет разделенный оператор Превитта к изображению с
@@ -344,7 +345,7 @@ class TIFFImage {
    *
    * @return Новое изображение с примененным разделенным оператором Прюитта.
    */
-  TIFFImage SetKernelPrewittSepCuda() const;
+  TIFFImage SetKernelPrewittSepCuda(const bool shared_memory = true) const;
 
   /**
    * @brief Применяет фильтр Гаусса к изображению.

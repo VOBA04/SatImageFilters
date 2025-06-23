@@ -367,13 +367,17 @@ TEST(TIFFImageTest, SobelFilterGPU) {
     CreateTestImage(temp_dir, 100, 100, k);
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage sobel = img.SetKernel(kKernelSobel);
-    TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel);
+    TIFFImage sobel_cuda = img.SetKernelCuda(kKernelSobel, false);
     EXPECT_TRUE(sobel == sobel_cuda) << "Image: " << k << std::endl
                                      << "Sobel: " << std::endl
                                      << sobel << "Sobel CUDA: " << std::endl
                                      << sobel_cuda;
+    TIFFImage sobel_cuda_shared = img.SetKernelCuda(kKernelSobel, true);
+    EXPECT_TRUE(sobel == sobel_cuda_shared) << "Image: " << k;
     TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
     EXPECT_TRUE(sobel == sobel_cuda_sep) << "Image: " << k;
+    TIFFImage sobel_cuda_sep_shared = img.SetKernelSobelSepCuda(true);
+    EXPECT_TRUE(sobel == sobel_cuda_sep_shared) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Sobel);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
@@ -453,8 +457,12 @@ TEST(TIFFImageTest, PrewittFilterGPU) {
     TIFFImage prewitt = img.SetKernel(kKernelPrewitt);
     TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
     EXPECT_TRUE(prewitt == prewitt_cuda) << "Image: " << k;
+    TIFFImage prewitt_cuda_shared = img.SetKernelCuda(kKernelPrewitt, true);
+    EXPECT_TRUE(prewitt == prewitt_cuda_shared) << "Image: " << k;
     TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
     EXPECT_TRUE(prewitt == prewitt_cuda_sep) << "Image: " << k;
+    TIFFImage prewitt_cuda_sep_shared = img.SetKernelPrewittSepCuda(true);
+    EXPECT_TRUE(prewitt == prewitt_cuda_sep_shared) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Prewitt);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
