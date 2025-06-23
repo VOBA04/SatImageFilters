@@ -1,8 +1,7 @@
 CompileFlags:
   Add:
-    - --cuda-path=/usr/local/cuda-12.8
-    - --cuda-gpu-arch=sm_75
-    - -I/usr/local/cuda-12.8/include
+    - --cuda-path=${CUDA_PATH}
+    - -I${CUDA_PATH}/include
   Remove:
     - -forward-unknown-to-host-compiler
     - --generate-code*
