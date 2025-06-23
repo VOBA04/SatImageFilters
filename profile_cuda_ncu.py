@@ -1,5 +1,6 @@
 import locale
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -74,6 +75,18 @@ def convert_to_ms(value, unit):
         return 0.0
 
 
+def preprocess_metric_value(value):
+    """Предобработка строки Metric Value для унификации формата чисел."""
+    if not isinstance(value, str):
+        return value
+    value = value.strip()
+    if re.match(r"^\d+,\d+$", value):
+        value = value.replace(",", ".")
+    elif re.match(r"^\d{1,3}(,\d{3})*(\.\d+)?$", value):
+        value = value.replace(",", "")
+    return value
+
+
 def parse_ncu_output(output, f, s, c):
     lines = output.split("\n")
     csv_start = None
@@ -87,7 +100,8 @@ def parse_ncu_output(output, f, s, c):
 
     csv_data = "\n".join(lines[csv_start:])
     try:
-        df = pd.read_csv(StringIO(csv_data))
+        df = pd.read_csv(StringIO(csv_data), thousands=",", decimal=".")
+        df["Metric Value"] = df["Metric Value"].apply(preprocess_metric_value)
         df["Metric Value"] = pd.to_numeric(df["Metric Value"], errors="coerce")
 
         df["Function"] = f
@@ -101,7 +115,11 @@ def parse_ncu_output(output, f, s, c):
 
         total_time = 0.0
         if not duration_rows.empty:
-            total_time = duration_rows["Metric Value"].sum()
+            print(f"Найдено строк для gpu__time_duration.sum: {len(duration_rows)}")
+            print(f"Значения Metric Value: {duration_rows['Metric Value'].tolist()}")
+            total_time = duration_rows[
+                "Metric Value"
+            ].sum()  # Суммируем время всех запусков
             unit = duration_rows["Metric Unit"].iloc[0]
             if pd.notna(total_time):
                 total_time = convert_to_ms(total_time, unit)
@@ -137,7 +155,10 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
             count_values = []
             for c in counts:
                 iteration += 1
-                command = f"ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
+                command_prefix = (
+                    "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
+                )
+                command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
                 print(f"[{iteration}/{iterations}] Выполняется: {command}")
                 try:
                     result = subprocess.run(
