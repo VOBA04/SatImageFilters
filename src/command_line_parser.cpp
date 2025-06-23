@@ -1,4 +1,7 @@
 #include "command_line_parser.h"
+#include <algorithm>
+#include <iomanip>
+#include <stdexcept>
 
 void CommandLineParser::AddArgument(const std::string& long_name,
                                     char short_name, const std::string& about,
@@ -21,7 +24,9 @@ void CommandLineParser::AddArgument(const std::string& long_name,
 }
 
 void CommandLineParser::Parse(int argc, char* argv[]) {
-  if (argc < 1) return;
+  if (argc < 1) {
+    return;
+  }
   program_name_ = argv[0];
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -100,7 +105,9 @@ const std::vector<std::string>& CommandLineParser::GetPositionalArgs() const {
   return positional_args_;
 }
 
-std::string CommandLineParser::GetProgramName() const { return program_name_; }
+std::string CommandLineParser::GetProgramName() const {
+  return program_name_;
+}
 
 std::string CommandLineParser::Help() const {
   std::ostringstream oss;
@@ -127,7 +134,9 @@ std::string CommandLineParser::Help() const {
                        option_names.end());
     std::string option_str;
     for (size_t i = 0; i < option_names.size(); ++i) {
-      if (i != 0) option_str += ", ";
+      if (i != 0) {
+        option_str += ", ";
+      }
       option_str += option_names[i];
     }
     std::string type_str =

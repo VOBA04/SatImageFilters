@@ -9,7 +9,7 @@
 #include <driver_types.h>
 #include "check_cuda_errors.h"
 
-const uint8_t BLOCK_SIZE = 16;
+const uint8_t kBlockSize = 16;
 
 __constant__ int d_kernel_sobel[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
 __constant__ int d_kernel_prewitt[9] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
@@ -115,7 +115,7 @@ __global__ void CudaSetSobelKernelShared(uint16_t* src, uint16_t* dst,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int local_i = threadIdx.y;
   int local_j = threadIdx.x;
-  __shared__ uint16_t s_tile[BLOCK_SIZE + 2][BLOCK_SIZE + 2];
+  __shared__ uint16_t s_tile[kBlockSize + 2][kBlockSize + 2];
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
 #pragma unroll
