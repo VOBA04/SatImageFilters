@@ -1,7 +1,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
 #include "kernel.h"
 #include "tiff_image.h"
 #include <vector_types.h>
@@ -9,6 +8,8 @@
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include "check_cuda_errors.h"
+
+const uint8_t BLOCK_SIZE = 16;
 
 __constant__ int d_kernel_sobel[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
 __constant__ int d_kernel_prewitt[9] = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
@@ -90,6 +91,31 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
                                    size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < height && j < width) {
+    int g_x = 0, g_y = 0;
+#pragma unroll
+    for (int k = 0; k < 3; k++) {
+#pragma unroll
+      for (int l = 0; l < 3; l++) {
+        int x = j + l - 1;
+        int y = i + k - 1;
+        x = Clamp(x, 0, width - 1);
+        y = Clamp(y, 0, height - 1);
+        g_x += src[y * width + x] * d_kernel_sobel[k * 3 + l];
+        g_y += src[y * width + x] * d_kernel_sobel[(3 - 1 - l) * 3 + k];
+      }
+    }
+    dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
+  }
+}
+
+__global__ void CudaSetSobelKernelShared(uint16_t* src, uint16_t* dst,
+                                         size_t height, size_t width) {
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  int local_i = threadIdx.y;
+  int local_j = threadIdx.x;
+  __shared__ uint16_t s_tile[BLOCK_SIZE + 2][BLOCK_SIZE + 2];
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
 #pragma unroll
