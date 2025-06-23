@@ -128,15 +128,26 @@ if(NOT CUDAToolkit_FOUND)
     message(FATAL_ERROR "CUDA Toolkit не найден")
 endif()
 
-if(CUDAToolkit_VERSION VERSION_LESS "11.0")
-    set(CMAKE_CUDA_ARCHITECTURES 30 50 52 60 61 70 72 75)
-    set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-else()
-    set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 89 90)
-    set(CMAKE_CUDA_STANDARD 17)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+if(CUDAToolkit_FOUND)
+    if(CUDAToolkit_VERSION VERSION_LESS "11.0")
+        set(CMAKE_CUDA_ARCHITECTURES 30 50 52 60 61 70 72 75)
+        set(CMAKE_CUDA_STANDARD 14)
+        message(STATUS "CUDA Toolkit < 11.0: Using architectures 3.0, 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5")
+    elseif(CUDAToolkit_VERSION VERSION_LESS "11.8")
+        set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80)
+        set(CMAKE_CUDA_STANDARD 17)
+        message(STATUS "CUDA Toolkit >= 11.0 and < 11.8: Using architectures 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5, 8.0")
+    else()
+        set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 89 90)
+        set(CMAKE_CUDA_STANDARD 17)
+        message(STATUS "CUDA Toolkit >= 11.8: Using architectures 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5, 8.0, 8.6, 8.9, 9.0")
+    endif()
 endif()
+
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+
+
 
 set(CUDA_ARCH "AUTO" CACHE STRING "CUDA architecture (e.g., 30, 50, 75, or AUTO for default)")
 if(NOT CUDA_ARCH STREQUAL "AUTO")
@@ -191,7 +202,10 @@ target_link_libraries(common PUBLIC
     CUDA::cudart 
     CUDA::cuda_driver
 )
-set_target_properties(common PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(common 
+    PROPERTIES CUDA_SEPARABLE_COMPILATION ON
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+)
 
 set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp")
 if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
