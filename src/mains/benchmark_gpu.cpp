@@ -1,4 +1,5 @@
 #include <string>
+#include <algorithm>
 
 #include "command_line_parser.h"
 #include "tiff_image.h"
