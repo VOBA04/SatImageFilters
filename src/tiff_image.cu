@@ -92,7 +92,9 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
+#pragma unroll
     for (int k = 0; k < 3; k++) {
+#pragma unroll
       for (int l = 0; l < 3; l++) {
         int x = j + l - 1;
         int y = i + k - 1;
@@ -121,6 +123,7 @@ __global__ void CudaSetSobelKernelSmooth(uint16_t* src, int* g_x, int* g_y,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     int sum_x = 0, sum_y = 0;
+#pragma unroll
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
@@ -148,7 +151,9 @@ __global__ void CudaSetPrewittKernel(uint16_t* src, uint16_t* dst,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
+#pragma unroll
     for (int k = 0; k < 3; k++) {
+#pragma unroll
       for (int l = 0; l < 3; l++) {
         int x = j + l - 1;
         int y = i + k - 1;
@@ -177,6 +182,7 @@ __global__ void CudaSetPrewittKernelAverage(uint16_t* src, int* g_x, int* g_y,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < height && j < width) {
     int sum_x = 0, sum_y = 0;
+#pragma unroll
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
@@ -207,6 +213,7 @@ __global__ void CudaSepKernelDiff(int* g_x, int* g_y, int* result_x,
   if (i < height && j < width) {
     int sum_x = 0;
     int sum_y = 0;
+#pragma unroll
     for (int k = 0; k < 3; k++) {
       int x = j + k - 1;
       int y = i + k - 1;
