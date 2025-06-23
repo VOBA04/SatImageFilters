@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(SatImageFilters LANGUAGES CXX CUDA)
 
 set(EXTERNAL_BUILD_DIR "${CMAKE_SOURCE_DIR}/external_build")
@@ -115,7 +117,6 @@ set(TESTS_DIR "${CMAKE_SOURCE_DIR}/tests")
 set(SOURCE_GUI_DIR "${SOURCE_DIR}/gui")
 set(INCLUDE_GUI_DIR "${INCLUDE_DIR}/gui")
 set(MAINS_DIR "${SOURCE_DIR}/mains")
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CUDA_VERSION "AUTO" CACHE STRING "CUDA Toolkit version (e.g., 10.2, 11.4, 12.8, or AUTO for automatic detection)")
 if(CUDA_VERSION STREQUAL "AUTO")
