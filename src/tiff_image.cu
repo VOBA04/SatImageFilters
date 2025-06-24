@@ -23,14 +23,8 @@ bool CheckFreeMem(size_t required_memory) {
   return free_memory > required_memory;
 }
 
-__device__ int Clamp(const int val, const int min, const int max) {
-  if (val < min) {
-    return min;
-  }
-  if (val > max) {
-    return max;
-  }
-  return val;
+__device__ __forceinline__ uint16_t Clamp(int val, int min_val, int max_val) {
+  return static_cast<uint16_t>(max(min_val, min(val, max_val)));
 }
 
 /**
@@ -116,45 +110,23 @@ __global__ void CudaSetSobelKernelShared(uint16_t* src, uint16_t* dst,
   int local_x = threadIdx.x;
   int local_y = threadIdx.y;
   __shared__ uint16_t s_tile[kBlockSize + 2][kBlockSize + 2];
-  if (i < height && j < width) {
-    s_tile[local_y + 1][local_x + 1] = src[i * width + j];
-  }
-  if (local_y == 0 && i > 0 && j < width) {
-    s_tile[0][local_x + 1] = src[(i - 1) * width + j];
-  }
-  if (local_y == kBlockSize - 1 && i < height - 1 && j < width) {
-    s_tile[kBlockSize + 1][local_x + 1] = src[(i + 1) * width + j];
-  }
-  if (local_x == 0 && j > 0 && i < height) {
-    s_tile[local_y + 1][0] = src[i * width + (j - 1)];
-  }
-  if (local_x == kBlockSize - 1 && j < width - 1 && i < height) {
-    s_tile[local_y + 1][kBlockSize + 1] = src[i * width + (j + 1)];
-  }
-  if (local_y == 0 && local_x == 0 && i > 0 && j > 0) {
-    s_tile[0][0] = src[(i - 1) * width + (j - 1)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1 && i > 0 && j < width - 1) {
-    s_tile[0][kBlockSize + 1] = src[(i - 1) * width + (j + 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0 && i < height - 1 && j > 0) {
-    s_tile[kBlockSize + 1][0] = src[(i + 1) * width + (j - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1 &&
-      i < height - 1 && j < width - 1) {
-    s_tile[kBlockSize + 1][kBlockSize + 1] = src[(i + 1) * width + (j + 1)];
+  for (int dy = -1; dy <= 1; ++dy) {
+    for (int dx = -1; dx <= 1; ++dx) {
+      int y = Clamp(i + dy, 0, height - 1);
+      int x = Clamp(j + dx, 0, width - 1);
+      int ly = local_y + dy + 1;
+      int lx = local_x + dx + 1;
+      s_tile[ly][lx] = src[y * width + x];
+    }
   }
   __syncthreads();
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
-#pragma unroll
     for (int k = 0; k < 3; k++) {
-#pragma unroll
       for (int l = 0; l < 3; l++) {
-        int x = local_x + l;
-        int y = local_y + k;
-        g_x += s_tile[y][x] * d_kernel_sobel[k * 3 + l];
-        g_y += s_tile[y][x] * d_kernel_sobel[(3 - 1 - l) * 3 + k];
+        int val = s_tile[local_y + k][local_x + l];
+        g_x += val * d_kernel_sobel[k * 3 + l];
+        g_y += val * d_kernel_sobel[(2 - l) * 3 + k];
       }
     }
     dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
@@ -193,51 +165,29 @@ __global__ void CudaSetSobelKernelSmooth(uint16_t* src, int* g_x, int* g_y,
 __global__ void CudaSetSobelKernelSmoothShared(uint16_t* src, int* g_x,
                                                int* g_y, size_t height,
                                                size_t width) {
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int local_x = threadIdx.x;
-  int local_y = threadIdx.y;
   __shared__ uint16_t s_tile[kBlockSize + 2][kBlockSize + 2];
-  if (i < height && j < width) {
-    s_tile[local_y + 1][local_x + 1] = src[i * width + j];
-  }
-  if (local_y == 0 && i > 0 && j < width) {
-    s_tile[0][local_x + 1] = src[(i - 1) * width + j];
-  }
-  if (local_y == kBlockSize - 1 && i < height - 1 && j < width) {
-    s_tile[kBlockSize + 1][local_x + 1] = src[(i + 1) * width + j];
-  }
-  if (local_x == 0 && j > 0 && i < height) {
-    s_tile[local_y + 1][0] = src[i * width + (j - 1)];
-  }
-  if (local_x == kBlockSize - 1 && j < width - 1 && i < height) {
-    s_tile[local_y + 1][kBlockSize + 1] = src[i * width + (j + 1)];
-  }
-  if (local_y == 0 && local_x == 0 && i > 0 && j > 0) {
-    s_tile[0][0] = src[(i - 1) * width + (j - 1)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1 && i > 0 && j < width - 1) {
-    s_tile[0][kBlockSize + 1] = src[(i - 1) * width + (j + 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0 && i < height - 1 && j > 0) {
-    s_tile[kBlockSize + 1][0] = src[(i + 1) * width + (j - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1 &&
-      i < height - 1 && j < width - 1) {
-    s_tile[kBlockSize + 1][kBlockSize + 1] = src[(i + 1) * width + (j + 1)];
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  int j = blockIdx.x * blockDim.x + tx;
+  int i = blockIdx.y * blockDim.y + ty;
+  int global_idx = i * width + j;
+  for (int dy = 0; dy <= 2; ++dy) {
+    for (int dx = 0; dx <= 2; ++dx) {
+      int global_y = Clamp(i + dy - 1, 0, height - 1);
+      int global_x = Clamp(j + dx - 1, 0, width - 1);
+      s_tile[ty + dy][tx + dx] = src[global_y * width + global_x];
+    }
   }
   __syncthreads();
   if (i < height && j < width) {
     int sum_x = 0, sum_y = 0;
 #pragma unroll
-    for (int k = 0; k < 3; k++) {
-      sum_x +=
-          s_tile[local_y + 1][local_x + 1 + (k - 1)] * d_kernel_sobel_sep[k];
-      sum_y +=
-          s_tile[local_y + 1 + (k - 1)][local_x + 1] * d_kernel_sobel_sep[k];
+    for (int k = 0; k < 3; ++k) {
+      sum_x += s_tile[ty + 1][tx + k] * d_kernel_sobel_sep[k];
+      sum_y += s_tile[ty + k][tx + 1] * d_kernel_sobel_sep[k];
     }
-    g_x[i * width + j] = sum_x;
-    g_y[i * width + j] = sum_y;
+    g_x[global_idx] = sum_x;
+    g_y[global_idx] = sum_y;
   }
 }
 
@@ -278,33 +228,14 @@ __global__ void CudaSetPrewittKernelShared(uint16_t* src, uint16_t* dst,
   int local_x = threadIdx.x;
   int local_y = threadIdx.y;
   __shared__ uint16_t s_tile[kBlockSize + 2][kBlockSize + 2];
-  if (i < height && j < width) {
-    s_tile[local_y + 1][local_x + 1] = src[i * width + j];
-  }
-  if (local_y == 0 && i > 0 && j < width) {
-    s_tile[0][local_x + 1] = src[(i - 1) * width + j];
-  }
-  if (local_y == kBlockSize - 1 && i < height - 1 && j < width) {
-    s_tile[kBlockSize + 1][local_x + 1] = src[(i + 1) * width + j];
-  }
-  if (local_x == 0 && j > 0 && i < height) {
-    s_tile[local_y + 1][0] = src[i * width + (j - 1)];
-  }
-  if (local_x == kBlockSize - 1 && j < width - 1 && i < height) {
-    s_tile[local_y + 1][kBlockSize + 1] = src[i * width + (j + 1)];
-  }
-  if (local_y == 0 && local_x == 0 && i > 0 && j > 0) {
-    s_tile[0][0] = src[(i - 1) * width + (j - 1)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1 && i > 0 && j < width - 1) {
-    s_tile[0][kBlockSize + 1] = src[(i - 1) * width + (j + 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0 && i < height - 1 && j > 0) {
-    s_tile[kBlockSize + 1][0] = src[(i + 1) * width + (j - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1 &&
-      i < height - 1 && j < width - 1) {
-    s_tile[kBlockSize + 1][kBlockSize + 1] = src[(i + 1) * width + (j + 1)];
+  for (int dy = -1; dy <= 1; ++dy) {
+    for (int dx = -1; dx <= 1; ++dx) {
+      int y = Clamp(i + dy, 0, height - 1);
+      int x = Clamp(j + dx, 0, width - 1);
+      int ly = local_y + dy + 1;
+      int lx = local_x + dx + 1;
+      s_tile[ly][lx] = src[y * width + x];
+    }
   }
   __syncthreads();
   if (i < height && j < width) {
@@ -313,10 +244,9 @@ __global__ void CudaSetPrewittKernelShared(uint16_t* src, uint16_t* dst,
     for (int k = 0; k < 3; k++) {
 #pragma unroll
       for (int l = 0; l < 3; l++) {
-        int x = local_x + l;
-        int y = local_y + k;
-        g_x += s_tile[y][x] * d_kernel_prewitt[k * 3 + l];
-        g_y += s_tile[y][x] * d_kernel_prewitt[(3 - 1 - l) * 3 + k];
+        int val = s_tile[local_y + k][local_x + l];
+        g_x += val * d_kernel_prewitt[k * 3 + l];
+        g_y += val * d_kernel_prewitt[(2 - l) * 3 + k];
       }
     }
     dst[i * width + j] = Clamp(abs(g_x) + abs(g_y), 0, 65535);
@@ -355,51 +285,29 @@ __global__ void CudaSetPrewittKernelAverage(uint16_t* src, int* g_x, int* g_y,
 __global__ void CudaSetPrewittKernelAverageShared(uint16_t* src, int* g_x,
                                                   int* g_y, size_t height,
                                                   size_t width) {
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int local_x = threadIdx.x;
-  int local_y = threadIdx.y;
-  __shared__ uint16_t s_tile[kBlockSize + 2][kBlockSize + 2];
-  if (i < height && j < width) {
-    s_tile[local_y + 1][local_x + 1] = src[i * width + j];
-  }
-  if (local_y == 0 && i > 0 && j < width) {
-    s_tile[0][local_x + 1] = src[(i - 1) * width + j];
-  }
-  if (local_y == kBlockSize - 1 && i < height - 1 && j < width) {
-    s_tile[kBlockSize + 1][local_x + 1] = src[(i + 1) * width + j];
-  }
-  if (local_x == 0 && j > 0 && i < height) {
-    s_tile[local_y + 1][0] = src[i * width + (j - 1)];
-  }
-  if (local_x == kBlockSize - 1 && j < width - 1 && i < height) {
-    s_tile[local_y + 1][kBlockSize + 1] = src[i * width + (j + 1)];
-  }
-  if (local_y == 0 && local_x == 0 && i > 0 && j > 0) {
-    s_tile[0][0] = src[(i - 1) * width + (j - 1)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1 && i > 0 && j < width - 1) {
-    s_tile[0][kBlockSize + 1] = src[(i - 1) * width + (j + 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0 && i < height - 1 && j > 0) {
-    s_tile[kBlockSize + 1][0] = src[(i + 1) * width + (j - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1 &&
-      i < height - 1 && j < width - 1) {
-    s_tile[kBlockSize + 1][kBlockSize + 1] = src[(i + 1) * width + (j + 1)];
+  __shared__ uint16_t tile[kBlockSize + 2][kBlockSize + 2];
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  int j = blockIdx.x * blockDim.x + tx;
+  int i = blockIdx.y * blockDim.y + ty;
+  int global_idx = i * width + j;
+  for (int dy = 0; dy <= 2; ++dy) {
+    for (int dx = 0; dx <= 2; ++dx) {
+      int global_y = Clamp(i + dy - 1, 0, height - 1);
+      int global_x = Clamp(j + dx - 1, 0, width - 1);
+      tile[ty + dy][tx + dx] = src[global_y * width + global_x];
+    }
   }
   __syncthreads();
   if (i < height && j < width) {
     int sum_x = 0, sum_y = 0;
 #pragma unroll
-    for (int k = 0; k < 3; k++) {
-      sum_x +=
-          s_tile[local_y + 1][local_x + 1 + (k - 1)] * d_kernel_prewitt_sep[k];
-      sum_y +=
-          s_tile[local_y + 1 + (k - 1)][local_x + 1] * d_kernel_prewitt_sep[k];
+    for (int k = 0; k < 3; ++k) {
+      sum_x += tile[ty + 1][tx + k] * d_kernel_prewitt_sep[k];
+      sum_y += tile[ty + k][tx + 1] * d_kernel_prewitt_sep[k];
     }
-    g_x[i * width + j] = sum_x;
-    g_y[i * width + j] = sum_y;
+    g_x[global_idx] = sum_x;
+    g_y[global_idx] = sum_y;
   }
 }
 
@@ -437,61 +345,28 @@ __global__ void CudaSepKernelDiff(int* g_x, int* g_y, int* result_x,
 __global__ void CudaSepKernelDiffShared(int* g_x, int* g_y, int* result_x,
                                         int* result_y, size_t height,
                                         size_t width) {
-  int i = blockIdx.y * blockDim.y + threadIdx.y;
-  int j = blockIdx.x * blockDim.x + threadIdx.x;
-  int local_x = threadIdx.x;
-  int local_y = threadIdx.y;
-  __shared__ int s_g_x[kBlockSize + 2][kBlockSize + 2];
-  __shared__ int s_g_y[kBlockSize + 2][kBlockSize + 2];
+  __shared__ int tile_gx[kBlockSize + 2][kBlockSize];
+  __shared__ int tile_gy[kBlockSize][kBlockSize + 2];
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  int j = blockIdx.x * blockDim.x + tx;
+  int i = blockIdx.y * blockDim.y + ty;
   if (i < height && j < width) {
-    s_g_x[local_y + 1][local_x + 1] = g_x[i * width + j];
-    s_g_y[local_y + 1][local_x + 1] = g_y[i * width + j];
-  }
-  if (local_y == 0 && i > 0 && j < width) {
-    s_g_x[0][local_x + 1] = g_x[(i - 1) * width + j];
-    s_g_y[0][local_x + 1] = g_y[(i - 1) * width + j];
-  }
-  if (local_y == kBlockSize - 1 && i < height - 1 && j < width) {
-    s_g_x[kBlockSize + 1][local_x + 1] = g_x[(i + 1) * width + j];
-    s_g_y[kBlockSize + 1][local_x + 1] = g_y[(i + 1) * width + j];
-  }
-  if (local_x == 0 && j > 0 && i < height) {
-    s_g_x[local_y + 1][0] = g_x[i * width + (j - 1)];
-    s_g_y[local_y + 1][0] = g_y[i * width + (j - 1)];
-  }
-  if (local_x == kBlockSize - 1 && j < width - 1 && i < height) {
-    s_g_x[local_y + 1][kBlockSize + 1] = g_x[i * width + (j + 1)];
-    s_g_y[local_y + 1][kBlockSize + 1] = g_y[i * width + (j + 1)];
-  }
-  if (local_y == 0 && local_x == 0 && i > 0 && j > 0) {
-    s_g_x[0][0] = g_x[(i - 1) * width + (j - 1)];
-    s_g_y[0][0] = g_y[(i - 1) * width + (j - 1)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1 && i > 0 && j < width - 1) {
-    s_g_x[0][kBlockSize + 1] = g_x[(i - 1) * width + (j + 1)];
-    s_g_y[0][kBlockSize + 1] = g_y[(i - 1) * width + (j + 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0 && i < height - 1 && j > 0) {
-    s_g_x[kBlockSize + 1][0] = g_x[(i + 1) * width + (j - 1)];
-    s_g_y[kBlockSize + 1][0] = g_y[(i + 1) * width + (j - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1 &&
-      i < height - 1 && j < width - 1) {
-    s_g_x[kBlockSize + 1][kBlockSize + 1] = g_x[(i + 1) * width + (j + 1)];
-    s_g_y[kBlockSize + 1][kBlockSize + 1] = g_y[(i + 1) * width + (j + 1)];
+    for (int k = -1; k <= 1; ++k) {
+      int gx_y = Clamp(i + k, 0, height - 1);
+      tile_gx[ty + k + 1][tx] = g_x[gx_y * width + j];
+
+      int gy_x = Clamp(j + k, 0, width - 1);
+      tile_gy[ty][tx + k + 1] = g_y[i * width + gy_x];
+    }
   }
   __syncthreads();
   if (i < height && j < width) {
-    int sum_x = 0;
-    int sum_y = 0;
+    int sum_x = 0, sum_y = 0;
 #pragma unroll
-    for (int k = 0; k < 3; k++) {
-      for (int k = 0; k < 3; k++) {
-        sum_x +=
-            s_g_x[local_y + 1 + (k - 1)][local_x + 1] * d_kernel_gradient[k];
-        sum_y +=
-            s_g_y[local_y + 1][local_x + 1 + (k - 1)] * d_kernel_gradient[k];
-      }
+    for (int k = 0; k < 3; ++k) {
+      sum_x += tile_gx[ty + k][tx] * d_kernel_gradient[k];
+      sum_y += tile_gy[ty][tx + k] * d_kernel_gradient[k];
     }
     result_x[i * width + j] = sum_x;
     result_y[i * width + j] = sum_y;
