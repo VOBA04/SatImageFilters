@@ -84,8 +84,8 @@ void CreateTestImage(std::string temp_dir, int width, int height,
       break;
     case 6:
       // Белый круг в центре на чёрном фоне
-      cv::circle(img, cv::Point(width / 2, height / 2), min(width, height) / 4,
-                 cv::Scalar(65535), -1);
+      cv::circle(img, cv::Point(width / 2, height / 2),
+                 std::min(width, height) / 4, cv::Scalar(65535), -1);
       break;
     case 7:
       // Один белый пиксель в центре, остальное чёрное
@@ -131,7 +131,7 @@ inline std::string GetBaseTempPath() {
   return std::string(temp_path);
 #else
   const char* tmpdir = getenv("TMPDIR");
-  if (!tmpdir) {
+  if (tmpdir == nullptr) {
     tmpdir = "/tmp";
   }
   return std::string(tmpdir);
@@ -156,7 +156,8 @@ inline std::string GetTempDir() {
   char* temp_dir_cstr = new char[temp_dir.length() + 1];
   strcpy(temp_dir_cstr, temp_dir.c_str());
   if (mkdtemp(temp_dir_cstr) == nullptr) {
-    cerr << "Failed to create temporary directory: " << temp_dir << std::endl;
+    std::cerr << "Failed to create temporary directory: " << temp_dir
+              << std::endl;
     delete[] temp_dir_cstr;
     exit(1);
   }
@@ -193,7 +194,7 @@ inline void RecursiveDelete(const std::string& path) {
   }
 #else
   DIR* dir = opendir(path.c_str());
-  if (!dir) {
+  if (dir == nullptr) {
     return;
   }
   struct dirent* entry;
@@ -468,8 +469,12 @@ TEST(TIFFImageTest, SobelFilterGPU) {
                                      << "Sobel: " << std::endl
                                      << sobel << "Sobel CUDA: " << std::endl
                                      << sobel_cuda;
+    TIFFImage sobel_cuda_shared = img.SetKernelCuda(kKernelSobel, true);
+    EXPECT_TRUE(sobel == sobel_cuda_shared) << "Image: " << k;
     TIFFImage sobel_cuda_sep = img.SetKernelSobelSepCuda();
     EXPECT_TRUE(sobel == sobel_cuda_sep) << "Image: " << k;
+    TIFFImage sobel_cuda_sep_shared = img.SetKernelSobelSepCuda(true);
+    EXPECT_TRUE(sobel == sobel_cuda_sep_shared) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Sobel);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
@@ -548,8 +553,12 @@ TEST(TIFFImageTest, PrewittFilterGPU) {
     TIFFImage prewitt = img.SetKernel(kKernelPrewitt);
     TIFFImage prewitt_cuda = img.SetKernelCuda(kKernelPrewitt);
     EXPECT_TRUE(prewitt == prewitt_cuda) << "Image: " << k;
+    TIFFImage prewitt_cuda_shared = img.SetKernelCuda(kKernelPrewitt, true);
+    EXPECT_TRUE(prewitt == prewitt_cuda_shared) << "Image: " << k;
     TIFFImage prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
     EXPECT_TRUE(prewitt == prewitt_cuda_sep) << "Image: " << k;
+    TIFFImage prewitt_cuda_sep_shared = img.SetKernelPrewittSepCuda(true);
+    EXPECT_TRUE(prewitt == prewitt_cuda_sep_shared) << "Image: " << k;
     img.SetImagePatametersForDevice(ImageOperation::Prewitt);
     img.AllocateDeviceMemory();
     img.CopyImageToDevice();
