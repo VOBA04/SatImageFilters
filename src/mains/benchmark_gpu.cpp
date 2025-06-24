@@ -77,6 +77,9 @@ int main(int argc, char* argv[]) {
                      std::string("Sets the size of the image in HxW format"));
   parser.AddArgument("count", 'c',
                      std::string("Sets the number of images to test"));
+  parser.AddArgument("shared_memory", 'm',
+                     std::string("Use shared memory for CUDA operations"),
+                     true);
   parser.AddArgument("gauss_size", '\0', "Gaussian kernel size", false, "3");
   parser.AddArgument("gauss_sigma", '\0', "Gaussian kernel sigma", false, "1");
   try {
@@ -97,6 +100,7 @@ int main(int argc, char* argv[]) {
         parser.Get("size") != "" ? parser.Get("size") : parser.Get("s"));
     size_t count = ChechCountArg(parser.Get("count") != "" ? parser.Get("count")
                                                            : parser.Get("c"));
+    bool use_shared_memory = parser.Has("shared_memory") || parser.Has("m");
     size_t gauss_size = 0;
     float sigma = 0;
     if (function == Functions::Gauss || function == Functions::GaussSep) {
@@ -108,6 +112,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Function: " << function << "\nImage size: " << size.first
               << "x" << size.second << "\nImage count: " << count
+              << "\nUse shared memory: " << (use_shared_memory ? "Yes" : "No")
               << "\nGaussian kernel size: " << gauss_size
               << "\nGaussian kernel sigma: " << sigma << std::endl;
     TIFFImage image;
@@ -140,16 +145,16 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < count; i++) {
       switch (function) {
         case Functions::Sobel:
-          image.SetKernelCuda(kKernelSobel);
+          image.SetKernelCuda(kKernelSobel, use_shared_memory);
           break;
         case Functions::SobelSep:
-          image.SetKernelSobelSepCuda();
+          image.SetKernelSobelSepCuda(use_shared_memory);
           break;
         case Functions::Prewitt:
-          image.SetKernelCuda(kKernelPrewitt);
+          image.SetKernelCuda(kKernelPrewitt, use_shared_memory);
           break;
         case Functions::PrewittSep:
-          image.SetKernelPrewittSepCuda();
+          image.SetKernelPrewittSepCuda(use_shared_memory);
           break;
         case Functions::Gauss:
           image.GaussianBlurCuda(gauss_size, sigma);

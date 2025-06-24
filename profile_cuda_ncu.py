@@ -12,17 +12,26 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 locale.setlocale(locale.LC_NUMERIC, "C")
 
-if len(sys.argv) != 3:
+shared_memory_flag = False
+args = sys.argv[1:]
+if "-m" in args:
+    shared_memory_flag = True
+    args.remove("-m")
+elif "--shared_memory" in args:
+    shared_memory_flag = True
+    args.remove("--shared_memory")
+
+if len(args) != 2:
     print(
         "Ошибка: укажите путь к исполняемому файлу и директорию для сохранения результатов."
     )
     print(
-        "Пример: python profile_cuda_ncu.py /path/to/benchmark_gpu /path/to/output/dir"
+        "Пример: python profile_cuda_ncu.py /path/to/benchmark_gpu /path/to/output/dir [-m|--shared_memory]"
     )
     sys.exit(1)
 
-executable = sys.argv[1]
-output_dir = sys.argv[2]
+executable = args[0]
+output_dir = args[1]
 
 if not os.path.isfile(executable):
     print(f"Ошибка: файл '{executable}' не существует.")
@@ -157,6 +166,8 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
                     "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
                 )
                 command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
+                if shared_memory_flag:
+                    command += " -m"
                 print(f"[{iteration}/{iterations}] Выполняется: {command}")
                 try:
                     result = subprocess.run(

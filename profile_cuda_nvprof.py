@@ -9,17 +9,26 @@ import pandas as pd
 from openpyxl.chart import LineChart, Reference
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-if len(sys.argv) != 3:
+shared_memory_flag = False
+args = sys.argv[1:]
+if "-m" in args:
+    shared_memory_flag = True
+    args.remove("-m")
+elif "--shared_memory" in args:
+    shared_memory_flag = True
+    args.remove("--shared_memory")
+
+if len(args) != 2:
     print(
         "Ошибка: укажите путь к исполняемому файлу и директорию для сохранения результатов."
     )
     print(
-        "Пример: python profile_cuda.py /path/to/benchmark_gpu.exe /path/to/output/dir"
+        "Пример: python profile_cuda.py /path/to/benchmark_gpu.exe /path/to/output/dir [-m|--shared_memory]"
     )
     sys.exit(1)
 
-executable = sys.argv[1]
-output_dir = sys.argv[2]
+executable = args[0]
+output_dir = args[1]
 
 if not os.path.isfile(executable):
     print(f"Ошибка: файл '{executable}' не существует.")
@@ -115,6 +124,8 @@ with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
             for c in counts:
                 iteration += 1
                 command = f"nvprof --csv --trace gpu {executable} -f {f} -s {s} -c {c}"
+                if shared_memory_flag:
+                    command += " -m"
                 print(f"[{iteration}/{iterations}] Выполняется: {command}")
                 try:
                     result = subprocess.run(
