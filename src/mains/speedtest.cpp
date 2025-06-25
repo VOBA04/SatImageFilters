@@ -66,11 +66,11 @@ int main() {
       start = ch::high_resolution_clock::now();
       image.GaussianBlurCuda(9, 5);
       end = ch::high_resolution_clock::now();
-      image.FreeDeviceMemory();
       fout << "CUDA: "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
       image.SetImagePatametersForDevice(ImageOperation::GaussianBlurSep, 9, 5);
+      image.CopyImageToDevice();
       start = ch::high_resolution_clock::now();
       image.GaussianBlurSepCuda(9, 5);
       end = ch::high_resolution_clock::now();
@@ -94,6 +94,8 @@ int main() {
       image.SetImagePatametersForDevice(ImageOperation::Sobel |
                                         ImageOperation::Prewitt |
                                         ImageOperation::Separated);
+      image.AllocateDeviceMemory();
+      image.CopyImageToDevice();
       start = ch::high_resolution_clock::now();
       image.SetKernelCuda(kKernelPrewitt);
       end = ch::high_resolution_clock::now();
