@@ -11,8 +11,10 @@
 #include <opencv2/opencv.hpp>
 #include <random>
 #include <string>
+#include <algorithm>
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <dirent.h>

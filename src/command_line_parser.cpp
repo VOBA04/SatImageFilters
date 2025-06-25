@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <stdexcept>
+#include <sstream>
 
 void CommandLineParser::AddArgument(const std::string& long_name,
                                     char short_name, const std::string& about,
