@@ -1,5 +1,8 @@
+#include <stdexcept>
 #include <string>
 #include <algorithm>
+#include <vector>
+#include <iostream>
 
 #include "command_line_parser.h"
 #include "tiff_image.h"

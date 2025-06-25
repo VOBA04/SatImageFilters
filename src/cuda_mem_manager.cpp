@@ -11,7 +11,8 @@
 #include "image_operation.h"
 #include "kernel.h"
 
-CudaMemManager::CudaMemManager() {}
+CudaMemManager::CudaMemManager() {
+}
 
 CudaMemManager::~CudaMemManager() {
   if (is_allocated_) {
@@ -249,21 +250,34 @@ void CudaMemManager::SetImageOperations(const ImageOperation operations) {
 
 bool CudaMemManager::CheckFreeMemory(size_t required_memory) const {
   size_t free_memory, total_memory;
+  cudaFree(0);
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
   return free_memory > required_memory;
 }
 
-uint16_t* CudaMemManager::GetDeviceSrc() const { return d_src_; }
+uint16_t* CudaMemManager::GetDeviceSrc() const {
+  return d_src_;
+}
 
-uint16_t* CudaMemManager::GetDeviceDst() const { return d_dst_; }
+uint16_t* CudaMemManager::GetDeviceDst() const {
+  return d_dst_;
+}
 
-int* CudaMemManager::GetDeviceSepGx() const { return d_sep_g_x_; }
+int* CudaMemManager::GetDeviceSepGx() const {
+  return d_sep_g_x_;
+}
 
-int* CudaMemManager::GetDeviceSepGy() const { return d_sep_g_y_; }
+int* CudaMemManager::GetDeviceSepGy() const {
+  return d_sep_g_y_;
+}
 
-int* CudaMemManager::GetDeviceSepResultX() const { return d_sep_result_x_; }
+int* CudaMemManager::GetDeviceSepResultX() const {
+  return d_sep_result_x_;
+}
 
-int* CudaMemManager::GetDeviceSepResultY() const { return d_sep_result_y_; }
+int* CudaMemManager::GetDeviceSepResultY() const {
+  return d_sep_result_y_;
+}
 
 float* CudaMemManager::GetDeviceGaussianKernel() const {
   return d_gaussian_kernel_;
@@ -273,4 +287,6 @@ float* CudaMemManager::GetDeviceGaussianSepTemp() const {
   return d_gaussian_sep_temp_;
 }
 
-bool CudaMemManager::IsAllocated() const { return is_allocated_; }
+bool CudaMemManager::IsAllocated() const {
+  return is_allocated_;
+}
