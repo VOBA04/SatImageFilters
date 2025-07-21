@@ -98,6 +98,31 @@ else()
     find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
 endif()
 
+find_package(OpenCL QUIET)
+if(OpenCL_FOUND)
+    message(STATUS "Найден OpenCL: ${OpenCL_LIBRARIES}")
+else()
+    message(STATUS "OpenCL не найден, выполняем сборку")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader -B ${EXTERNAL_BUILD_DIR}/opencl_build
+                -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DBUILD_SHARED_LIBS=ON
+        RESULT_VARIABLE OPENCL_CONFIGURE_RESULT
+    )
+    if(NOT OPENCL_CONFIGURE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось настроить OpenCL")
+    endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --build ${EXTERNAL_BUILD_DIR}/opencl_build --target install
+        RESULT_VARIABLE OPENCL_BUILD_RESULT
+    )
+    if(NOT OPENCL_BUILD_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось собрать или установить OpenCL")
+    endif()
+    set (OpenCL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
+    find_package(OpenCL REQUIRED)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -188,6 +213,7 @@ include_directories(${INCLUDE_DIR})
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
 include_directories(${TIFF_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${OpenCL_INCLUDE_DIRS})
 
 file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
 add_library(common STATIC ${SOURCES})
@@ -197,11 +223,13 @@ target_include_directories(common PUBLIC
     ${CUDAToolkit_INCLUDE_DIRS}
     ${TIFF_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
+    ${OpenCL_INCLUDE_DIRS}
 )
 target_link_libraries(common PUBLIC
     TIFF::TIFF 
     CUDA::cudart 
     CUDA::cuda_driver
+    OpenCL::OpenCL
 )
 set_target_properties(common 
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON
