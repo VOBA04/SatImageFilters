@@ -8,3 +8,9 @@
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest.git
+[submodule "external/opencl/OpenCL-Headers"]
+	path = external/opencl/OpenCL-Headers
+	url = https://github.com/KhronosGroup/OpenCL-Headers.git
+[submodule "external/opencl/OpenCL-ICD-Loader"]
+	path = external/opencl/OpenCL-ICD-Loader
+	url = https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
