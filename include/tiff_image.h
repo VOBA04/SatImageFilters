@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #if __cplusplus > 201402L
 #include <filesystem>
@@ -22,6 +23,8 @@
 #include "cuda_mem_manager.h"
 #include "image_operation.h"
 #include "kernel.h"
+
+#include <CL/cl.h>
 
 #ifdef USE_QT
 #include <qimage.h>
@@ -51,6 +54,37 @@ class TIFFImage {
       nullptr;  ///< Одномерный массив, представляющий изображение.
   CudaMemManager
       cuda_mem_manager_{};  ///< Менеджер памяти CUDA для обработки изображений.
+
+  // -------- OpenCL state --------
+  // Контекст/устройство/очередь OpenCL и ресурсы для повторного использования
+  cl_context cl_context_ = nullptr;
+  cl_device_id cl_device_ = nullptr;
+  cl_command_queue cl_queue_ = nullptr;
+  cl_program cl_program_ = nullptr;
+
+  // Буферы устройства (при предварительном выделении)
+  cl_mem cl_src_ = nullptr;
+  cl_mem cl_dst_ = nullptr;
+  cl_mem cl_sep_g_x_ = nullptr;
+  cl_mem cl_sep_g_y_ = nullptr;
+  cl_mem cl_sep_result_x_ = nullptr;
+  cl_mem cl_sep_result_y_ = nullptr;
+  cl_mem cl_gaussian_kernel_ = nullptr;
+  cl_mem cl_gaussian_sep_temp_ = nullptr;
+
+  // Параметры и флаги выделения для OpenCL
+  size_t cl_image_size_ = 0;
+  size_t cl_gaussian_kernel_size_ = 0;
+  float cl_gaussian_sigma_ = 0.0f;
+  std::vector<ImageOperation> cl_image_operations_{};
+  bool cl_allocated_ = false;
+
+  // Вспомогательные методы OpenCL (инициализация/компиляция/очистка)
+  void EnsureOpenCLInitialized();
+  void EnsureOpenCLProgramBuilt();
+  void ReleaseOpenCLProgram();
+  void ReleaseOpenCLContext();
+  void EnsureGaussianKernelBuffer(size_t kernel_size, float sigma);
 
   /**
    * @brief Складывает абсолютные значения элементов двух матриц.
@@ -254,6 +288,16 @@ class TIFFImage {
 
   void FreeDeviceMemory();
 
+  // ---------- OpenCL memory management (аналог CUDA) ----------
+  void SetImagePatametersForOpenCLOps(
+      ImageOperation operations = ImageOperation::None,
+      size_t gaussian_kernel_size = 0, float gaussian_sigma = 0.0f);
+
+  void AllocateOpenCLMemory();
+  void ReallocateOpenCLMemory();
+  void CopyImageToOpenCLDevice();
+  void FreeOpenCLMemory();
+
   /**
    * @brief Оператор сравнения.
    *
@@ -303,6 +347,11 @@ class TIFFImage {
                           const bool shared_memory = true,
                           const bool rotate = true) const;
 
+  // --------- OpenCL compute (аналог CUDA) ----------
+  TIFFImage SetKernelOpenCL(const Kernel<int>& kernel,
+                            const bool shared_memory = true,
+                            const bool rotate = true) const;
+
   /**
    * @brief Применяет разделенный оператор Собеля к изображению.
    *
@@ -335,6 +384,8 @@ class TIFFImage {
    */
   TIFFImage SetKernelSobelSepCuda(const bool shared_memory = true) const;
 
+  TIFFImage SetKernelSobelSepOpenCL(const bool shared_memory = true) const;
+
   /**
    * @brief Применяет разделенный оператор Превитта к изображению с
    * использованием CUDA.
@@ -346,6 +397,8 @@ class TIFFImage {
    * @return Новое изображение с примененным разделенным оператором Прюитта.
    */
   TIFFImage SetKernelPrewittSepCuda(const bool shared_memory = true) const;
+
+  TIFFImage SetKernelPrewittSepOpenCL(const bool shared_memory = true) const;
 
   /**
    * @brief Применяет фильтр Гаусса к изображению.
@@ -399,6 +452,8 @@ class TIFFImage {
    */
   TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0);
 
+  TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0);
+
   /**
    * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
    * CUDA.
@@ -414,6 +469,9 @@ class TIFFImage {
    * @return Новое изображение с примененным разделенным фильтром Гаусса.
    */
   TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
+
+  TIFFImage GaussianBlurSepOpenCL(const size_t size = 3,
+                                  const float sigma = 0.0);
 
 #ifdef USE_QT
   /**

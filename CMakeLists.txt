@@ -181,6 +181,7 @@ if(NOT CUDA_ARCH STREQUAL "AUTO")
 endif()
 
 add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_compile_definitions(CL_TARGET_OPENCL_VERSION=120)
 
 enable_language(CUDA)
 find_package(Qt6 COMPONENTS Core Gui Widgets)
@@ -197,7 +198,7 @@ if(Qt6_FOUND)
     qt6_wrap_cpp(GUI_MOC_SOURCES ${GUI_INCLUDE})
     add_executable(gui ${GUI_SOURCES} ${GUI_MOC_SOURCES})
 
-    target_link_libraries(gui PRIVATE TIFF::TIFF CUDA::cudart CUDA::cuda_driver Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
+    target_link_libraries(gui PRIVATE TIFF::TIFF CUDA::cudart CUDA::cuda_driver OpenCL::OpenCL Qt6::Core Qt6::Gui Qt6::Widgets ${OpenCV_LIBS})
     target_include_directories(gui PRIVATE ${INCLUDE_GUI_DIR} ${CUDAToolkit_INCLUDE_DIRS})
     if(CMAKE_AUTOUIC)
         target_include_directories(gui PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -247,11 +248,13 @@ add_executable(${PROJECT_NAME} "${MAINS_DIR}/main.cpp")
 add_executable(speedtest "${MAINS_DIR}/speedtest.cpp")
 add_executable(unit_tests ${TEST_SOURCES})
 add_executable(benchmark_gpu "${MAINS_DIR}/benchmark_gpu.cpp")
+add_executable(main_opencl "${MAINS_DIR}/main_opencl.cpp")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE common)
 target_link_libraries(speedtest PRIVATE common)
 target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtest_main common)
 target_link_libraries(benchmark_gpu PRIVATE common)
+target_link_libraries(main_opencl PRIVATE common OpenCL::OpenCL)
 
 foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
     if(WIN32)
@@ -268,6 +271,15 @@ foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
         endif()
     endif()
 endforeach()
+# ensure kernels.cl is available at runtime (build uses source path)
+add_custom_target(copy_opencl_kernels ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/src/kernels/kernels.cl
+            ${CMAKE_BINARY_DIR}/kernels.cl
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/kernels.cl
+    COMMENT "Copying OpenCL kernels.cl to build dir"
+)
+add_dependencies(main_opencl copy_opencl_kernels)
 if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
     file(GLOB OPENCV_DLLS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin/*.dll")
     foreach(dll ${OPENCV_DLLS})
