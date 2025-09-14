@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(SatImageFilters LANGUAGES CXX CUDA)
+enable_testing()
 
 set(EXTERNAL_BUILD_DIR "${CMAKE_SOURCE_DIR}/external_build")
 file(MAKE_DIRECTORY ${EXTERNAL_BUILD_DIR})
@@ -237,7 +238,7 @@ set_target_properties(common
     CUDA_RESOLVE_DEVICE_SYMBOLS ON
 )
 
-set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp")
+set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp" "${TESTS_DIR}/test_tiff_image_opencl.cpp")
 if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
     list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image.cpp")
 else()
