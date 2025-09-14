@@ -117,6 +117,245 @@ kernel void Prewitt(global ushort* src, global ushort* dst, ulong h, ulong w) {
   dst[(ulong)i * w + (ulong)j] = (ushort)(s > 65535 ? 65535 : s);
 }
 
+// ---------------- Local memory optimized 3x3 variants ----------------
+// Tile-based loading into __local memory with R=1 halo
+inline int clampi(int v, int lo, int hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+kernel void SobelLocal(global ushort* src, global ushort* dst, ulong h, ulong w,
+                       local ushort* tile) {
+  const int gx = get_global_id(0);
+  const int gy = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = 1;
+  const int tileW = ldx + 2 * R;
+  const int tx = lx + R;
+  const int ty = ly + R;
+
+  // Center pixel
+  int cx = clampi(gx, 0, (int)w - 1);
+  int cy = clampi(gy, 0, (int)h - 1);
+  tile[ty * tileW + tx] = src[(ulong)cy * w + (ulong)cx];
+
+  // Halo (R=1): left/right/top/bottom
+  if (lx < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx - 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (lx >= ldx - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx + 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (ly < R) {
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  if (ly >= ldy - R) {
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  // Corners
+  if (lx < R && ly < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx < R && ly >= ldy - R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly < R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly >= ldy - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)gy >= h || (ulong)gx >= w)
+    return;
+
+  int gxv = 0, gyv = 0;
+  // Convolution in local memory
+  for (int r = -1; r <= 1; ++r) {
+    for (int c = -1; c <= 1; ++c) {
+      int v = (int)tile[(ty + r) * tileW + (tx + c)];
+      int kr = KERNEL_SOBEL[(r + 1) * 3 + (c + 1)];
+      int kr_t = KERNEL_SOBEL[(1 - c) * 3 + (r + 1)];
+      gxv += v * kr;
+      gyv += v * kr_t;
+    }
+  }
+  int s = abs(gxv) + abs(gyv);
+  dst[(ulong)gy * w + (ulong)gx] = (ushort)(s > 65535 ? 65535 : s);
+}
+
+kernel void PrewittLocal(global ushort* src, global ushort* dst, ulong h,
+                         ulong w, local ushort* tile) {
+  const int gx = get_global_id(0);
+  const int gy = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = 1;
+  const int tileW = ldx + 2 * R;
+  const int tx = lx + R;
+  const int ty = ly + R;
+
+  int cx = clampi(gx, 0, (int)w - 1);
+  int cy = clampi(gy, 0, (int)h - 1);
+  tile[ty * tileW + tx] = src[(ulong)cy * w + (ulong)cx];
+  if (lx < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx - 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (lx >= ldx - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx + 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (ly < R) {
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  if (ly >= ldy - R) {
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  if (lx < R && ly < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx < R && ly >= ldy - R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly < R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly >= ldy - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)gy >= h || (ulong)gx >= w)
+    return;
+
+  int gxv = 0, gyv = 0;
+  for (int r = -1; r <= 1; ++r) {
+    for (int c = -1; c <= 1; ++c) {
+      int v = (int)tile[(ty + r) * tileW + (tx + c)];
+      int kr = KERNEL_PREWITT[(r + 1) * 3 + (c + 1)];
+      int kr_t = KERNEL_PREWITT[(1 - c) * 3 + (r + 1)];
+      gxv += v * kr;
+      gyv += v * kr_t;
+    }
+  }
+  int s = abs(gxv) + abs(gyv);
+  dst[(ulong)gy * w + (ulong)gx] = (ushort)(s > 65535 ? 65535 : s);
+}
+
+// Generic 3x3 with provided kernel (rotate behaves like in ApplyKernel)
+kernel void ApplyKernel3Local(global ushort* src, global ushort* dst, ulong h,
+                              ulong w, global int* k, int ksize, int rotate,
+                              local ushort* tile) {
+  const int gx = get_global_id(0);
+  const int gy = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = 1;  // only for ksize==3
+  const int tileW = ldx + 2 * R;
+  const int tx = lx + R;
+  const int ty = ly + R;
+
+  int cx = clampi(gx, 0, (int)w - 1);
+  int cy = clampi(gy, 0, (int)h - 1);
+  tile[ty * tileW + tx] = src[(ulong)cy * w + (ulong)cx];
+  if (lx < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx - 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (lx >= ldx - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    tile[ty * tileW + (tx + 1)] = src[(ulong)cy * w + (ulong)x];
+  }
+  if (ly < R) {
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  if (ly >= ldy - R) {
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + tx] = src[(ulong)y * w + (ulong)cx];
+  }
+  if (lx < R && ly < R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx < R && ly >= ldy - R) {
+    int x = clampi(gx - 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx - 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly < R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy - 1, 0, (int)h - 1);
+    tile[(ty - 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+  if (lx >= ldx - R && ly >= ldy - R) {
+    int x = clampi(gx + 1, 0, (int)w - 1);
+    int y = clampi(gy + 1, 0, (int)h - 1);
+    tile[(ty + 1) * tileW + (tx + 1)] = src[(ulong)y * w + (ulong)x];
+  }
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)gy >= h || (ulong)gx >= w)
+    return;
+
+  if (rotate != 0) {
+    int gvx = 0, gvy = 0;
+    for (int r = -1; r <= 1; ++r) {
+      for (int c = -1; c <= 1; ++c) {
+        int v = (int)tile[(ty + r) * tileW + (tx + c)];
+        int kk = k[(r + 1) * 3 + (c + 1)];
+        int kk_t = k[(1 - c) * 3 + (r + 1)];
+        gvx += v * kk;
+        gvy += v * kk_t;
+      }
+    }
+    int s = abs(gvx) + abs(gvy);
+    dst[(ulong)gy * w + (ulong)gx] = (ushort)(s > 65535 ? 65535 : s);
+  } else {
+    int g = 0;
+    for (int r = -1; r <= 1; ++r) {
+      for (int c = -1; c <= 1; ++c) {
+        int v = (int)tile[(ty + r) * tileW + (tx + c)];
+        int kk = k[(r + 1) * 3 + (c + 1)];
+        g += v * kk;
+      }
+    }
+    g = g < 0 ? 0 : (g > 65535 ? 65535 : g);
+    dst[(ulong)gy * w + (ulong)gx] = (ushort)g;
+  }
+}
+
 // Separable pre-smoothing (Sobel)
 kernel void SobelSmooth(global ushort* src, global int* gx, ulong h, ulong w) {
   const int j = get_global_id(0);

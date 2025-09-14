@@ -102,8 +102,9 @@ void TIFFImage::EnsureOpenCLInitialized() {
 
 void TIFFImage::EnsureOpenCLProgramBuilt() {
   EnsureOpenCLInitialized();
-  if (cl_program_ != nullptr)
+  if (cl_program_ != nullptr) {
     return;
+  }
   cl_int err;
   std::string kernel_path =
       std::string(PROJECT_SOURCE_DIR) + "/src/kernels/kernels.cl";
@@ -127,18 +128,18 @@ void TIFFImage::EnsureOpenCLProgramBuilt() {
 }
 
 void TIFFImage::ReleaseOpenCLProgram() {
-  if (cl_program_) {
+  if (cl_program_ != nullptr) {
     clReleaseProgram(cl_program_);
     cl_program_ = nullptr;
   }
 }
 
 void TIFFImage::ReleaseOpenCLContext() {
-  if (cl_queue_) {
+  if (cl_queue_ != nullptr) {
     clReleaseCommandQueue(cl_queue_);
     cl_queue_ = nullptr;
   }
-  if (cl_context_) {
+  if (cl_context_ != nullptr) {
     clReleaseContext(cl_context_);
     cl_context_ = nullptr;
   }
@@ -152,7 +153,7 @@ void TIFFImage::EnsureGaussianKernelBuffer(size_t kernel_size, float sigma) {
     return;
   }
   // Пере-выделить
-  if (cl_gaussian_kernel_) {
+  if (cl_gaussian_kernel_ != nullptr) {
     clReleaseMemObject(cl_gaussian_kernel_);
     cl_gaussian_kernel_ = nullptr;
   }
@@ -190,8 +191,9 @@ void TIFFImage::SetImagePatametersForOpenCLOps(ImageOperation operations,
 
 void TIFFImage::AllocateOpenCLMemory() {
   EnsureOpenCLInitialized();
-  if (cl_allocated_)
+  if (cl_allocated_) {
     return;
+  }
   cl_int err;
   cl_src_ = clCreateBuffer(cl_context_, CL_MEM_READ_WRITE, cl_image_size_,
                            nullptr, &err);
@@ -228,8 +230,9 @@ void TIFFImage::AllocateOpenCLMemory() {
 
   bool need_gauss_temp = false;
   for (auto op : cl_image_operations_) {
-    if (op == ImageOperation::GaussianBlurSep)
+    if (op == ImageOperation::GaussianBlurSep) {
       need_gauss_temp = true;
+    }
   }
   if (need_gauss_temp) {
     cl_gaussian_sep_temp_ = clCreateBuffer(cl_context_, CL_MEM_READ_WRITE,
@@ -249,11 +252,13 @@ void TIFFImage::ReallocateOpenCLMemory() {
 }
 
 void TIFFImage::CopyImageToOpenCLDevice() {
-  if (!image_)
+  if (image_ == nullptr) {
     throw std::runtime_error("The image was not uploaded");
+  }
   EnsureOpenCLInitialized();
-  if (!cl_allocated_)
+  if (!cl_allocated_) {
     AllocateOpenCLMemory();
+  }
   CheckCLError(
       clEnqueueWriteBuffer(cl_queue_, cl_src_, CL_TRUE, 0, cl_image_size_,
                            image_, 0, nullptr, nullptr),
@@ -262,7 +267,7 @@ void TIFFImage::CopyImageToOpenCLDevice() {
 
 void TIFFImage::FreeOpenCLMemory() {
   auto rel = [](cl_mem& m) {
-    if (m) {
+    if (m != nullptr) {
       clReleaseMemObject(m);
       m = nullptr;
     }
@@ -283,22 +288,44 @@ static inline size_t RoundUp(size_t value, size_t multiple) {
 }
 
 TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
-                                     const bool /*shared_memory*/,
+                                     const bool shared_memory,
                                      const bool rotate) const {
   const_cast<TIFFImage*>(this)->EnsureOpenCLProgramBuilt();
   cl_int err;
   cl_kernel k = nullptr;
   bool generic = false;
+  const int ksize_candidate = static_cast<int>(kernel.GetHeight());
+  const bool can_use_local = shared_memory && (ksize_candidate == 3);
+  bool used_local_kernel = false;
   if (kernel == kKernelSobel) {
-    k = clCreateKernel(cl_program_, "Sobel", &err);
-    CheckCLError(err, "clCreateKernel(Sobel)");
+    if (can_use_local) {
+      k = clCreateKernel(cl_program_, "SobelLocal", &err);
+      CheckCLError(err, "clCreateKernel(SobelLocal)");
+      used_local_kernel = true;
+    } else {
+      k = clCreateKernel(cl_program_, "Sobel", &err);
+      CheckCLError(err, "clCreateKernel(Sobel)");
+    }
   } else if (kernel == kKernelPrewitt) {
-    k = clCreateKernel(cl_program_, "Prewitt", &err);
-    CheckCLError(err, "clCreateKernel(Prewitt)");
+    if (can_use_local) {
+      k = clCreateKernel(cl_program_, "PrewittLocal", &err);
+      CheckCLError(err, "clCreateKernel(PrewittLocal)");
+      used_local_kernel = true;
+    } else {
+      k = clCreateKernel(cl_program_, "Prewitt", &err);
+      CheckCLError(err, "clCreateKernel(Prewitt)");
+    }
   } else {
-    k = clCreateKernel(cl_program_, "ApplyKernel", &err);
-    CheckCLError(err, "clCreateKernel(ApplyKernel)");
-    generic = true;
+    if (can_use_local) {
+      k = clCreateKernel(cl_program_, "ApplyKernel3Local", &err);
+      CheckCLError(err, "clCreateKernel(ApplyKernel3Local)");
+      generic = true;  // still needs k/ksize/rotate
+      used_local_kernel = true;
+    } else {
+      k = clCreateKernel(cl_program_, "ApplyKernel", &err);
+      CheckCLError(err, "clCreateKernel(ApplyKernel)");
+      generic = true;
+    }
   }
 
   // Выделение/копирование
@@ -352,6 +379,15 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                  "clSetKernelArg(rotate)");
   }
 
+  if (used_local_kernel) {
+    size_t local_x = kBlockSize;
+    size_t local_y = kBlockSize;
+    size_t tile_elems = (local_x + 2) * (local_y + 2);
+    size_t local_bytes = tile_elems * sizeof(cl_ushort);
+    CheckCLError(clSetKernelArg(k, arg++, local_bytes, nullptr),
+                 "clSetKernelArg(local tile)");
+  }
+
   size_t global[2] = {RoundUp(width_, kBlockSize),
                       RoundUp(height_, kBlockSize)};
   size_t local[2] = {kBlockSize, kBlockSize};
@@ -366,8 +402,9 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                                    h_dst, 0, nullptr, nullptr),
                "clEnqueueReadBuffer(dst)");
 
-  if (kernel_buf)
+  if (kernel_buf != nullptr) {
     clReleaseMemObject(kernel_buf);
+  }
   clReleaseKernel(k);
   if (ephemeral) {
     clReleaseMemObject(src);
@@ -420,10 +457,11 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
     int arg = 0;
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a0), "arg0");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a1), "arg1");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "arg2");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "arg3");
-    if (a2)
-      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg4");
+    if (a2 != nullptr) {
+      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg2");
+    }
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
                                         0, nullptr, nullptr),
                  "clEnqueueNDRangeKernel");
@@ -516,10 +554,11 @@ TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
     int arg = 0;
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a0), "arg0");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a1), "arg1");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "arg2");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "arg3");
-    if (a2)
-      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg4");
+    if (a2 != nullptr) {
+      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg2");
+    }
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
                                         0, nullptr, nullptr),
                  "clEnqueueNDRangeKernel");
