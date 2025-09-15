@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <chrono>
 
 #include "command_line_parser.h"
 #include "tiff_image.h"
@@ -83,6 +84,14 @@ int main(int argc, char* argv[]) {
   parser.AddArgument("shared_memory", 'm',
                      std::string("Use shared memory for CUDA operations"),
                      true);
+  parser.AddArgument(
+      "async", 'a',
+      std::string(
+          "Use asynchronous CUDA API (create stream and use async methods)"),
+      true);
+  parser.AddArgument("overlap", 'o',
+                     std::string("Enable simple overlap demo (requires -a)"),
+                     true);
   parser.AddArgument("gauss_size", '\0', "Gaussian kernel size", false, "3");
   parser.AddArgument("gauss_sigma", '\0', "Gaussian kernel sigma", false, "1");
   try {
@@ -143,31 +152,176 @@ int main(int argc, char* argv[]) {
                                           gauss_size, sigma);
         break;
     }
+    bool use_async = parser.Has("async") || parser.Has("a");
+    bool use_overlap = parser.Has("overlap") || parser.Has("o");
     image.AllocateDeviceMemory();
-    image.CopyImageToDevice();
-    for (size_t i = 0; i < count; i++) {
-      switch (function) {
-        case Functions::Sobel:
-          image.SetKernelCuda(kKernelSobel, use_shared_memory);
-          break;
-        case Functions::SobelSep:
-          image.SetKernelSobelSepCuda(use_shared_memory);
-          break;
-        case Functions::Prewitt:
-          image.SetKernelCuda(kKernelPrewitt, use_shared_memory);
-          break;
-        case Functions::PrewittSep:
-          image.SetKernelPrewittSepCuda(use_shared_memory);
-          break;
-        case Functions::Gauss:
-          image.GaussianBlurCuda(gauss_size, sigma);
-          break;
-        case Functions::GaussSep:
-          image.GaussianBlurSepCuda(gauss_size, sigma);
-          break;
+    if (use_async) {
+      // create stream and use async API
+      if (use_overlap) {
+        // simple double-buffer overlap demo: two streams, alternate buffers
+        cudaStream_t streams[2] = {nullptr, nullptr};
+        if (cudaSuccess != cudaStreamCreate(&streams[0]) ||
+            cudaSuccess != cudaStreamCreate(&streams[1])) {
+          std::cerr << "Warning: failed to create CUDA streams for overlap "
+                       "demo. Falling back to single-stream async."
+                    << std::endl;
+          use_overlap = false;
+        } else {
+          // set first stream on image (functions forward stream from TIFFImage)
+          image.SetCudaStream(streams[0]);
+          // We'll manually alternate streams when copying/launching kernels by
+          // setting the TIFFImage stream before each operation.
+
+          // timings
+          using Clock = std::chrono::high_resolution_clock;
+          std::chrono::duration<double, std::milli> total_time{0};
+          std::chrono::duration<double, std::milli> upload_time{0};
+          std::chrono::duration<double, std::milli> compute_time{0};
+
+          for (size_t i = 0; i < count; i++) {
+            int slot = i % 2;  // 0 or 1
+            cudaStream_t s = streams[slot];
+            image.SetCudaStream(s);
+
+            auto t0 = Clock::now();
+            image.CopyImageToDeviceAsyncSlot(slot);
+            auto t1 = Clock::now();
+            upload_time += (t1 - t0);
+
+            // launch kernel on same stream
+            auto t2 = Clock::now();
+            switch (function) {
+              case Functions::Sobel:
+                image.SetKernelCudaAsyncSlot(kKernelSobel, use_shared_memory,
+                                             true, slot);
+                break;
+              case Functions::SobelSep:
+                image.SetKernelSobelSepCudaAsyncSlot(use_shared_memory, slot);
+                break;
+              case Functions::Prewitt:
+                image.SetKernelCudaAsyncSlot(kKernelPrewitt, use_shared_memory,
+                                             true, slot);
+                break;
+              case Functions::PrewittSep:
+                image.SetKernelPrewittSepCudaAsyncSlot(use_shared_memory, slot);
+                break;
+              case Functions::Gauss:
+                image.GaussianBlurCuda(gauss_size, sigma);
+                break;
+              case Functions::GaussSep:
+                image.GaussianBlurSepCuda(gauss_size, sigma);
+                break;
+            }
+            auto t3 = Clock::now();
+            compute_time += (t3 - t2);
+
+            // don't synchronize here - we rely on stream ordering for each slot
+            total_time += (t3 - t0);
+          }
+
+          // synchronize both streams to ensure all work is done
+          cudaStreamSynchronize(streams[0]);
+          cudaStreamSynchronize(streams[1]);
+
+          // finalize: get result from both slots
+          (void)image.CopyImageFromDeviceAsyncSlot(0);
+          (void)image.CopyImageFromDeviceAsyncSlot(1);
+          image.FreeDeviceMemory();
+
+          // print timings
+          std::cout << "Overlap demo (2 streams) timings (ms):\n";
+          std::cout << "  total (accumulated): " << total_time.count() << "\n";
+          std::cout << "  upload (accumulated): " << upload_time.count()
+                    << "\n";
+          std::cout << "  compute (accumulated): " << compute_time.count()
+                    << "\n";
+
+          cudaStreamDestroy(streams[0]);
+          cudaStreamDestroy(streams[1]);
+        }
+      }
+      if (!use_overlap) {
+        // single-stream async path
+        cudaStream_t stream = nullptr;
+        if (cudaSuccess != cudaStreamCreate(&stream)) {
+          std::cerr << "Warning: failed to create CUDA stream. Falling back to "
+                       "synchronous path."
+                    << std::endl;
+          use_async = false;
+        } else {
+          image.SetCudaStream(stream);
+          // timings
+          using Clock = std::chrono::high_resolution_clock;
+          std::chrono::duration<double, std::milli> compute_time{0};
+          auto t_total_start = Clock::now();
+
+          image.CopyImageToDeviceAsync();
+          for (size_t i = 0; i < count; i++) {
+            auto t1 = Clock::now();
+            switch (function) {
+              case Functions::Sobel:
+                image.SetKernelCudaAsync(kKernelSobel, use_shared_memory);
+                break;
+              case Functions::SobelSep:
+                image.SetKernelSobelSepCudaAsync(use_shared_memory);
+                break;
+              case Functions::Prewitt:
+                image.SetKernelCudaAsync(kKernelPrewitt, use_shared_memory);
+                break;
+              case Functions::PrewittSep:
+                image.SetKernelPrewittSepCudaAsync(use_shared_memory);
+                break;
+              case Functions::Gauss:
+                image.GaussianBlurCuda(gauss_size, sigma);
+                break;
+              case Functions::GaussSep:
+                image.GaussianBlurSepCuda(gauss_size, sigma);
+                break;
+            }
+            auto t2 = Clock::now();
+            compute_time += (t2 - t1);
+          }
+          // wait all
+          cudaStreamSynchronize(stream);
+          (void)image.CopyImageFromDeviceAsync();
+          image.FreeDeviceMemory();
+          auto t_total_end = Clock::now();
+          std::chrono::duration<double, std::milli> total_time =
+              (t_total_end - t_total_start);
+          std::cout << "Async single-stream timings (ms): total="
+                    << total_time.count()
+                    << ", compute_accum=" << compute_time.count() << "\n";
+          cudaStreamDestroy(stream);
+        }
       }
     }
-    image.FreeDeviceMemory();
+    if (!use_async) {
+      // synchronous path
+      image.CopyImageToDevice();
+      for (size_t i = 0; i < count; i++) {
+        switch (function) {
+          case Functions::Sobel:
+            image.SetKernelCuda(kKernelSobel, use_shared_memory);
+            break;
+          case Functions::SobelSep:
+            image.SetKernelSobelSepCuda(use_shared_memory);
+            break;
+          case Functions::Prewitt:
+            image.SetKernelCuda(kKernelPrewitt, use_shared_memory);
+            break;
+          case Functions::PrewittSep:
+            image.SetKernelPrewittSepCuda(use_shared_memory);
+            break;
+          case Functions::Gauss:
+            image.GaussianBlurCuda(gauss_size, sigma);
+            break;
+          case Functions::GaussSep:
+            image.GaussianBlurSepCuda(gauss_size, sigma);
+            break;
+        }
+      }
+      image.FreeDeviceMemory();
+    }
     std::cout << "END" << std::endl;
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << "\n\n";

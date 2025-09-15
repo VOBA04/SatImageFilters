@@ -1,7 +1,5 @@
 #include "cuda_mem_manager.h"
 
-#include <cuda_runtime.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -68,6 +66,16 @@ void CudaMemManager::AllocateMemory() {
   }
   checkCudaErrors(cudaMalloc(&d_src_, image_size));
   checkCudaErrors(cudaMalloc(&d_dst_, image_size));
+  // allocate second slot for ping-pong if enough memory
+  if (CheckFreeMemory(image_size * 2)) {
+    checkCudaErrors(cudaMalloc(&d_src_2_, image_size));
+    checkCudaErrors(cudaMalloc(&d_dst_2_, image_size));
+    pingpong_allocated_ = true;
+  } else {
+    d_src_2_ = nullptr;
+    d_dst_2_ = nullptr;
+    pingpong_allocated_ = false;
+  }
   if ((sobel_required || prewitt_required) && separation_required) {
     checkCudaErrors(cudaMalloc(&d_sep_g_x_, image_size_ * sizeof(int)));
     checkCudaErrors(cudaMalloc(&d_sep_g_y_, image_size_ * sizeof(int)));
@@ -98,6 +106,14 @@ void CudaMemManager::FreeMemory() {
   d_src_ = nullptr;
   checkCudaErrors(cudaFree(d_dst_));
   d_dst_ = nullptr;
+  if (d_src_2_ != nullptr) {
+    checkCudaErrors(cudaFree(d_src_2_));
+    d_src_2_ = nullptr;
+  }
+  if (d_dst_2_ != nullptr) {
+    checkCudaErrors(cudaFree(d_dst_2_));
+    d_dst_2_ = nullptr;
+  }
   if (d_sep_g_x_ != nullptr) {
     checkCudaErrors(cudaFree(d_sep_g_x_));
     d_sep_g_x_ = nullptr;
@@ -138,6 +154,51 @@ void CudaMemManager::CopyImageToDevice(const uint16_t* src) {
   }
   checkCudaErrors(cudaMemcpy(d_src_, src, image_size_ * sizeof(uint16_t),
                              cudaMemcpyHostToDevice));
+}
+
+void CudaMemManager::CopyImageToDeviceAsync(const uint16_t* src,
+                                            cudaStream_t stream) {
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  checkCudaErrors(cudaMemcpyAsync(d_src_, src, image_size_ * sizeof(uint16_t),
+                                  cudaMemcpyHostToDevice, stream));
+}
+
+void CudaMemManager::CopyImageToDeviceAsyncSlot(const uint16_t* src,
+                                                cudaStream_t stream, int slot) {
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  uint16_t* target = (slot == 1 && pingpong_allocated_) ? d_src_2_ : d_src_;
+  if (target == nullptr) {
+    throw std::runtime_error("Ping-pong slot not available.");
+  }
+  checkCudaErrors(cudaMemcpyAsync(target, src, image_size_ * sizeof(uint16_t),
+                                  cudaMemcpyHostToDevice, stream));
+}
+
+void CudaMemManager::CopyImageFromDeviceAsync(uint16_t* dst,
+                                              cudaStream_t stream) {
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  checkCudaErrors(cudaMemcpyAsync(dst, d_dst_, image_size_ * sizeof(uint16_t),
+                                  cudaMemcpyDeviceToHost, stream));
+}
+
+void CudaMemManager::CopyImageFromDeviceAsyncSlot(uint16_t* dst,
+                                                  cudaStream_t stream,
+                                                  int slot) {
+  if (!is_allocated_) {
+    throw std::runtime_error("Memory is not allocated.");
+  }
+  uint16_t* source = (slot == 1 && pingpong_allocated_) ? d_dst_2_ : d_dst_;
+  if (source == nullptr) {
+    throw std::runtime_error("Ping-pong slot not available.");
+  }
+  checkCudaErrors(cudaMemcpyAsync(dst, source, image_size_ * sizeof(uint16_t),
+                                  cudaMemcpyDeviceToHost, stream));
 }
 
 void CudaMemManager::CopyImageFromDevice(uint16_t* dst) {
@@ -250,7 +311,7 @@ void CudaMemManager::SetImageOperations(const ImageOperation operations) {
 
 bool CudaMemManager::CheckFreeMemory(size_t required_memory) const {
   size_t free_memory, total_memory;
-  cudaFree(0);
+  cudaFree(nullptr);
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
   return free_memory > required_memory;
 }
@@ -259,8 +320,16 @@ uint16_t* CudaMemManager::GetDeviceSrc() const {
   return d_src_;
 }
 
+uint16_t* CudaMemManager::GetDeviceSrcSlot(int slot) const {
+  return (slot == 1 && pingpong_allocated_) ? d_src_2_ : d_src_;
+}
+
 uint16_t* CudaMemManager::GetDeviceDst() const {
   return d_dst_;
+}
+
+uint16_t* CudaMemManager::GetDeviceDstSlot(int slot) const {
+  return (slot == 1 && pingpong_allocated_) ? d_dst_2_ : d_dst_;
 }
 
 int* CudaMemManager::GetDeviceSepGx() const {

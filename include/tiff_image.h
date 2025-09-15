@@ -8,6 +8,7 @@
  */
 
 #pragma once
+#include <driver_types.h>
 #include <tiff.h>
 #include <tiffio.h>
 
@@ -54,6 +55,9 @@ class TIFFImage {
       nullptr;  ///< Одномерный массив, представляющий изображение.
   CudaMemManager
       cuda_mem_manager_{};  ///< Менеджер памяти CUDA для обработки изображений.
+
+  cudaStream_t cuda_stream_ =
+      nullptr;  ///< Поток CUDA для асинхронных операций.
 
   // -------- OpenCL state --------
   // Контекст/устройство/очередь OpenCL и ресурсы для повторного использования
@@ -288,6 +292,15 @@ class TIFFImage {
 
   void FreeDeviceMemory();
 
+  void SetCudaStream(cudaStream_t stream) noexcept;
+  void CreateCudaStream();
+  void DestroyCudaStream();
+  void CopyImageToDeviceAsync();
+  TIFFImage CopyImageFromDeviceAsync();
+  // Ping-pong async (slot 0 or 1)
+  void CopyImageToDeviceAsyncSlot(int slot = 0);
+  TIFFImage CopyImageFromDeviceAsyncSlot(int slot = 0);
+
   // ---------- OpenCL memory management (аналог CUDA) ----------
   void SetImagePatametersForOpenCLOps(
       ImageOperation operations = ImageOperation::None,
@@ -347,6 +360,13 @@ class TIFFImage {
                           const bool shared_memory = true,
                           const bool rotate = true) const;
 
+  void SetKernelCudaAsync(const Kernel<int>& kernel,
+                          const bool shared_memory = true,
+                          const bool rotate = true) const;
+  void SetKernelCudaAsyncSlot(const Kernel<int>& kernel,
+                              const bool shared_memory = true,
+                              const bool rotate = true, int slot = 0) const;
+
   // --------- OpenCL compute (аналог CUDA) ----------
   TIFFImage SetKernelOpenCL(const Kernel<int>& kernel,
                             const bool shared_memory = true,
@@ -384,6 +404,10 @@ class TIFFImage {
    */
   TIFFImage SetKernelSobelSepCuda(const bool shared_memory = true) const;
 
+  void SetKernelSobelSepCudaAsync(const bool shared_memory = true) const;
+  void SetKernelSobelSepCudaAsyncSlot(const bool shared_memory = true,
+                                      int slot = 0) const;
+
   TIFFImage SetKernelSobelSepOpenCL(const bool shared_memory = true) const;
 
   /**
@@ -397,6 +421,10 @@ class TIFFImage {
    * @return Новое изображение с примененным разделенным оператором Прюитта.
    */
   TIFFImage SetKernelPrewittSepCuda(const bool shared_memory = true) const;
+
+  void SetKernelPrewittSepCudaAsync(const bool shared_memory = true) const;
+  void SetKernelPrewittSepCudaAsyncSlot(const bool shared_memory = true,
+                                        int slot = 0) const;
 
   TIFFImage SetKernelPrewittSepOpenCL(const bool shared_memory = true) const;
 
