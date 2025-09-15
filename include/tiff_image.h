@@ -20,7 +20,9 @@
 #include <filesystem>
 #endif
 
+#ifdef BUILD_WITH_CUDA
 #include "cuda_mem_manager.h"
+#endif
 #include "image_operation.h"
 #include "kernel.h"
 
@@ -52,8 +54,10 @@ class TIFFImage {
   float resolution_y_ = 0.0f;            ///< Разрешение по оси Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
+#ifdef BUILD_WITH_CUDA
   CudaMemManager
-      cuda_mem_manager_{};  ///< Менеджер памяти CUDA для обработки изображений.
+      cuda_mem_manager_{};  ///< Менеджер памяти CUDA (если доступна CUDA).
+#endif
 
   // -------- OpenCL state --------
   // Контекст/устройство/очередь OpenCL и ресурсы для повторного использования
@@ -276,17 +280,16 @@ class TIFFImage {
    */
   void CopyFields(const TIFFImage& other);
 
+  // CUDA memory helpers — доступны только при сборке с CUDA
+#ifdef BUILD_WITH_CUDA
   void SetImagePatametersForDevice(
       ImageOperation operations = ImageOperation::None,
       size_t gaussian_kernel_size = 0, float gaussian_sigma = 0);
-
   void AllocateDeviceMemory();
-
   void ReallocateDeviceMemory();
-
   void CopyImageToDevice();
-
   void FreeDeviceMemory();
+#endif
 
   // ---------- OpenCL memory management (аналог CUDA) ----------
   void SetImagePatametersForOpenCLOps(
@@ -343,9 +346,12 @@ class TIFFImage {
    * true).
    * @return Новое изображение с примененным ядром.
    */
+  // CUDA kernels — только при сборке с CUDA
+#ifdef BUILD_WITH_CUDA
   TIFFImage SetKernelCuda(const Kernel<int>& kernel,
                           const bool shared_memory = true,
                           const bool rotate = true) const;
+#endif
 
   // --------- OpenCL compute (аналог CUDA) ----------
   TIFFImage SetKernelOpenCL(const Kernel<int>& kernel,
@@ -372,31 +378,35 @@ class TIFFImage {
    */
   TIFFImage SetKernelPrewittSep() const;
 
-  /**
-   * @brief Применяет разделенный оператор Собеля к изображению с использованием
-   * CUDA.
-   *
-   * Создает новое изображение, применяя фильтр Собеля с использованием
-   * метода разделения ядра и вычислений на GPU через CUDA.
-   * Этот метод обеспечивает ускорение обработки изображений большого размера.
-   *
-   * @return Новое изображение с примененным разделенным оператором Собеля.
-   */
+/**
+ * @brief Применяет разделенный оператор Собеля к изображению с использованием
+ * CUDA.
+ *
+ * Создает новое изображение, применяя фильтр Собеля с использованием
+ * метода разделения ядра и вычислений на GPU через CUDA.
+ * Этот метод обеспечивает ускорение обработки изображений большого размера.
+ *
+ * @return Новое изображение с примененным разделенным оператором Собеля.
+ */
+#ifdef BUILD_WITH_CUDA
   TIFFImage SetKernelSobelSepCuda(const bool shared_memory = true) const;
+#endif
 
   TIFFImage SetKernelSobelSepOpenCL(const bool shared_memory = true) const;
 
-  /**
-   * @brief Применяет разделенный оператор Превитта к изображению с
-   * использованием CUDA.
-   *
-   * Создает новое изображение, применяя фильтр Превитта с использованием
-   * метода разделения ядра и вычислений на GPU через CUDA.
-   * Этот метод обеспечивает ускорение обработки изображений большого размера.
-   *
-   * @return Новое изображение с примененным разделенным оператором Прюитта.
-   */
+/**
+ * @brief Применяет разделенный оператор Превитта к изображению с
+ * использованием CUDA.
+ *
+ * Создает новое изображение, применяя фильтр Превитта с использованием
+ * метода разделения ядра и вычислений на GPU через CUDA.
+ * Этот метод обеспечивает ускорение обработки изображений большого размера.
+ *
+ * @return Новое изображение с примененным разделенным оператором Прюитта.
+ */
+#ifdef BUILD_WITH_CUDA
   TIFFImage SetKernelPrewittSepCuda(const bool shared_memory = true) const;
+#endif
 
   TIFFImage SetKernelPrewittSepOpenCL(const bool shared_memory = true) const;
 
@@ -441,34 +451,38 @@ class TIFFImage {
   TIFFImage GaussianBlurSep(const size_t size = 3,
                             const float sigma = 0.0) const;
 
-  /**
-   * @brief Применяет фильтр Гаусса к изображению с использованием CUDA.
-   *
-   * Создает новое изображение, применяя фильтр Гаусса с использованием CUDA.
-   *
-   * @param size Размер фильтра (должен быть нечетным).
-   * @param sigma Стандартное отклонение (опционально).
-   * @return Новое изображение с примененным фильтром Гаусса.
-   */
+/**
+ * @brief Применяет фильтр Гаусса к изображению с использованием CUDA.
+ *
+ * Создает новое изображение, применяя фильтр Гаусса с использованием CUDA.
+ *
+ * @param size Размер фильтра (должен быть нечетным).
+ * @param sigma Стандартное отклонение (опционально).
+ * @return Новое изображение с примененным фильтром Гаусса.
+ */
+#ifdef BUILD_WITH_CUDA
   TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0);
+#endif
 
   TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0);
 
-  /**
-   * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
-   * CUDA.
-   *
-   * Создает новое изображение, применяя разделенный фильтр Гаусса с
-   * использованием вычислений на GPU через CUDA. Разделенный фильтр Гаусса
-   * выполняет свертку по одной оси (горизонтальной или вертикальной) за один
-   * проход, что значительно снижает вычислительную сложность. Использование
-   * CUDA дополнительно ускоряет обработку для изображений большого размера.
-   *
-   * @param size Размер фильтра (должен быть нечетным).
-   * @param sigma Стандартное отклонение (опционально).
-   * @return Новое изображение с примененным разделенным фильтром Гаусса.
-   */
+/**
+ * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
+ * CUDA.
+ *
+ * Создает новое изображение, применяя разделенный фильтр Гаусса с
+ * использованием вычислений на GPU через CUDA. Разделенный фильтр Гаусса
+ * выполняет свертку по одной оси (горизонтальной или вертикальной) за один
+ * проход, что значительно снижает вычислительную сложность. Использование
+ * CUDA дополнительно ускоряет обработку для изображений большого размера.
+ *
+ * @param size Размер фильтра (должен быть нечетным).
+ * @param sigma Стандартное отклонение (опционально).
+ * @return Новое изображение с примененным разделенным фильтром Гаусса.
+ */
+#ifdef BUILD_WITH_CUDA
   TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
+#endif
 
   TIFFImage GaussianBlurSepOpenCL(const size_t size = 3,
                                   const float sigma = 0.0);

@@ -43,8 +43,12 @@ TIFFImage::TIFFImage()
       resolution_unit_enabled_(true),
       resolution_x_(0.0f),
       resolution_y_(0.0f),
-      image_(nullptr),
-      cuda_mem_manager_() {
+      image_(nullptr)
+#ifdef BUILD_WITH_CUDA
+      ,
+      cuda_mem_manager_()
+#endif
+{
 }
 
 TIFFImage::TIFFImage(const char* name) noexcept(false) {
@@ -77,8 +81,12 @@ TIFFImage::TIFFImage(size_t width, size_t height, uint16_t samples_per_pixel,
       resolution_unit_enabled_(true),
       resolution_x_(resolution_x),
       resolution_y_(resolution_y),
-      image_(new uint16_t[width * height]()),
-      cuda_mem_manager_() {
+      image_(new uint16_t[width * height]())
+#ifdef BUILD_WITH_CUDA
+      ,
+      cuda_mem_manager_()
+#endif
+{
   image_ = new uint16_t[width_ * height_];
 }
 
@@ -276,6 +284,7 @@ void TIFFImage::CopyFields(const TIFFImage& other) {
   image_ = new uint16_t[width_ * height_];
 }
 
+#ifdef BUILD_WITH_CUDA
 void TIFFImage::SetImagePatametersForDevice(ImageOperation operations,
                                             size_t gaussian_kernel_size,
                                             float gaussian_sigma) {
@@ -308,6 +317,7 @@ void TIFFImage::CopyImageToDevice() {
   }
   cuda_mem_manager_.CopyImageToDevice(image_);
 }
+#endif  // BUILD_WITH_CUDA
 
 bool TIFFImage::operator==(const TIFFImage& other) const {
   if (width_ != other.width_ || height_ != other.height_ ||
