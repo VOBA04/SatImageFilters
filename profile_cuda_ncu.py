@@ -1,3 +1,4 @@
+import argparse
 import locale
 import os
 import re
@@ -5,17 +6,25 @@ import subprocess
 import sys
 from datetime import datetime
 from io import StringIO
+
 import pandas as pd
-import argparse
 
 locale.setlocale(locale.LC_NUMERIC, "C")
 
-parser = argparse.ArgumentParser(description="Profile CUDA kernels using Nsight Compute.")
+parser = argparse.ArgumentParser(
+    description="Profile CUDA kernels using Nsight Compute."
+)
 parser.add_argument("executable", help="Path to the executable file.")
 parser.add_argument("output_dir", help="Directory to save results.")
-parser.add_argument("-m", "--shared_memory", action="store_true", help="Enable shared memory.")
-parser.add_argument("--save-mode", choices=["single", "iterative"], default="single",
-                    help="Save mode: 'single' for one Excel file at the end, 'iterative' for saving each iteration.")
+parser.add_argument(
+    "-m", "--shared_memory", action="store_true", help="Enable shared memory."
+)
+parser.add_argument(
+    "--save-mode",
+    choices=["single", "iterative"],
+    default="single",
+    help="Save mode: 'single' for one Excel file at the end, 'iterative' for saving each iteration.",
+)
 args = parser.parse_args()
 
 executable = args.executable
@@ -35,23 +44,27 @@ elif not os.path.isdir(output_dir):
 
 filters = ["Sobel", "SobelSep", "Prewitt", "PrewittSep"]
 sizes = [
-    "10x10",
-    "100x100",
-    "500x500",
+    # "10x10",
+    # "100x100",
+    # "500x500",
     "1000x1000",
-    "2000x2000",
-    "3000x3000",
-    "4000x4000",
-    "5000x5000",
-    "10000x10000",
+    # "2000x2000",
+    # "3000x3000",
+    # "4000x4000",
+    # "5000x5000",
+    # "10000x10000",
 ]
-counts = ["1", "2", "5", "10", "50", "100", "1000"]
+counts = [
+    # "1", "2", "5", "10", "50", "100",
+    "1000"
+]
 iterations = len(filters) * len(sizes) * len(counts)
 
 output_excel = os.path.join(
     output_dir,
     f"ncu_profiling_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
 )
+
 
 def convert_to_ms(value, unit):
     """Преобразование времени в миллисекунды."""
@@ -71,6 +84,7 @@ def convert_to_ms(value, unit):
         print(f"Ошибка конвертации времени: {value} ({unit}) - {e}")
         return 0.0
 
+
 def preprocess_metric_value(value):
     """Предобработка строки Metric Value для унификации формата чисел."""
     if not isinstance(value, str):
@@ -81,6 +95,7 @@ def preprocess_metric_value(value):
     elif re.match(r"^\d{1,3}(,\d{3})*(\.\d+)?$", value):
         value = value.replace(",", "")
     return value
+
 
 def parse_ncu_output(output, f, s, c):
     lines = output.split("\n")
@@ -136,6 +151,7 @@ def parse_ncu_output(output, f, s, c):
         print(f"Ошибка парсинга CSV: {e}")
         return None
 
+
 all_dfs = []
 
 iteration = 0
@@ -156,11 +172,17 @@ for f in filters:
                 df = parse_ncu_output(output, f, s, c)
                 if df is not None and not df.empty:
                     cols = ["Function", "Size", "Count"] + [
-                        col for col in df.columns if col not in ["Function", "Size", "Count"]
+                        col
+                        for col in df.columns
+                        if col not in ["Function", "Size", "Count"]
                     ]
                     df = df[cols]
                     if save_mode == "iterative":
-                        with pd.ExcelWriter(output_excel, engine="openpyxl", mode="a" if os.path.exists(output_excel) else "w") as writer:
+                        with pd.ExcelWriter(
+                            output_excel,
+                            engine="openpyxl",
+                            mode="a" if os.path.exists(output_excel) else "w",
+                        ) as writer:
                             sheet_name = f"{f}_{s}_{c}".replace(".", "_")[:31]
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
                     else:
