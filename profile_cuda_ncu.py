@@ -58,7 +58,8 @@ counts = [
     # "1", "2", "5", "10", "50", "100",
     "1000"
 ]
-iterations = len(filters) * len(sizes) * len(counts)
+streams = ["", "-a", "-a -o"]
+iterations = len(filters) * len(sizes) * len(counts) * len(streams)
 
 output_excel = os.path.join(
     output_dir,
@@ -158,39 +159,42 @@ iteration = 0
 for f in filters:
     for s in sizes:
         for c in counts:
-            iteration += 1
-            command_prefix = "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
-            command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
-            if shared_memory_flag:
-                command += " -m"
-            print(f"[{iteration}/{iterations}] Выполняется: {command}")
-            try:
-                result = subprocess.run(
-                    command, shell=True, capture_output=True, text=True
+            for st in streams:
+                iteration += 1
+                command_prefix = (
+                    "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
                 )
-                output = result.stdout + result.stderr
-                df = parse_ncu_output(output, f, s, c)
-                if df is not None and not df.empty:
-                    cols = ["Function", "Size", "Count"] + [
-                        col
-                        for col in df.columns
-                        if col not in ["Function", "Size", "Count"]
-                    ]
-                    df = df[cols]
-                    if save_mode == "iterative":
-                        with pd.ExcelWriter(
-                            output_excel,
-                            engine="openpyxl",
-                            mode="a" if os.path.exists(output_excel) else "w",
-                        ) as writer:
-                            sheet_name = f"{f}_{s}_{c}".replace(".", "_")[:31]
-                            df.to_excel(writer, sheet_name=sheet_name, index=False)
+                command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c} {st}"
+                if shared_memory_flag:
+                    command += " -m"
+                print(f"[{iteration}/{iterations}] Выполняется: {command}")
+                try:
+                    result = subprocess.run(
+                        command, shell=True, capture_output=True, text=True
+                    )
+                    output = result.stdout + result.stderr
+                    df = parse_ncu_output(output, f, s, c)
+                    if df is not None and not df.empty:
+                        cols = ["Function", "Size", "Count"] + [
+                            col
+                            for col in df.columns
+                            if col not in ["Function", "Size", "Count"]
+                        ]
+                        df = df[cols]
+                        if save_mode == "iterative":
+                            with pd.ExcelWriter(
+                                output_excel,
+                                engine="openpyxl",
+                                mode="a" if os.path.exists(output_excel) else "w",
+                            ) as writer:
+                                sheet_name = f"{f}_{s}_{c}".replace(".", "_")[:31]
+                                df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        else:
+                            all_dfs.append((df, f"{f}_{s}_{c}".replace(".", "_")[:31]))
                     else:
-                        all_dfs.append((df, f"{f}_{s}_{c}".replace(".", "_")[:31]))
-                else:
-                    print(f"Нет данных для команды: {command}")
-            except Exception as e:
-                print(f"Ошибка при выполнении команды '{command}': {e}")
+                        print(f"Нет данных для команды: {command}")
+                except Exception as e:
+                    print(f"Ошибка при выполнении команды '{command}': {e}")
 
 if save_mode == "single" and all_dfs:
     with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
