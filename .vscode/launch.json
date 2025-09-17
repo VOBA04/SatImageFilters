@@ -1,0 +1,39 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CUDA: Launch SatImageFilters (cuda-gdb)",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/SatImageFilters",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb",
+            "linux": {
+                "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb"
+            }
+        },
+        {
+            "name": "CUDA: Launch unit_tests (cuda-gdb)",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/unit_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb",
+            "linux": {
+                "miDebuggerPath": "/usr/local/cuda/bin/cuda-gdb"
+            }
+        },
+        {
+            "name": "CUDA: Attach",
+            "type": "cuda-gdb",
+            "request": "attach"
+        }
+    ]
+}

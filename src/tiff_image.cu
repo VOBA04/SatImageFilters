@@ -104,61 +104,32 @@ __global__ void CudaSetSobelKernel(uint16_t* src, uint16_t* dst, size_t height,
   }
 }
 
+// extern __shared__ uint16_t s_tile[];
+
 __global__ void CudaSetSobelKernelShared(uint16_t* src, uint16_t* dst,
                                          size_t height, size_t width) {
   int i = blockIdx.y * blockDim.y + threadIdx.y;
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   int local_x = threadIdx.x;
   int local_y = threadIdx.y;
-  int li = Clamp(i, 0, height - 1);
-  int lj = Clamp(j, 0, width - 1);
+  // оптимизировано
   __shared__ uint16_t s_tile[(kBlockSize + 2) * (kBlockSize + 2)];
-  s_tile[(local_y + 1) * (kBlockSize + 2) + (local_x + 1)] =
-      src[li * width + lj];
-  if (local_y == 0) {
-    s_tile[0 * (kBlockSize + 2) + (local_x + 1)] =
-        src[max(li - 1, 0) * width + lj];
+  int li = Clamp(i - 1, 0, height - 1);
+  int lj = Clamp(j - 1, 0, width - 1);
+  s_tile[local_y * (kBlockSize + 2) + local_x] = src[li * width + lj];
+  if (local_y < 2) {
+    s_tile[(local_y + kBlockSize) * (kBlockSize + 2) + local_x] =
+        src[min(i - 1 + kBlockSize, (int)height - 1) * width + lj];
   }
-  if (local_x == 0) {
-    s_tile[(local_y + 1) * (kBlockSize + 2) + 0] =
-        src[li * width + max(lj - 1, 0)];
+  if (local_x < 2) {
+    s_tile[local_y * (kBlockSize + 2) + (local_x + kBlockSize)] =
+        src[li * width + min(j - 1 + kBlockSize, (int)width - 1)];
   }
-  if (local_y == kBlockSize - 1) {
-    s_tile[(local_y + 2) * (kBlockSize + 2) + (local_x + 1)] =
-        src[min(li + 1, (int)height - 1) * width + lj];
-  }
-  if (local_x == kBlockSize - 1) {
-    s_tile[(local_y + 1) * (kBlockSize + 2) + (local_x + 2)] =
-        src[li * width + min(lj + 1, (int)width - 1)];
-  }
-  if (local_y == 0 && local_x == 0) {
-    s_tile[0 * (kBlockSize + 2) + 0] =
-        src[max(li - 1, 0) * width + max(lj - 1, 0)];
-  }
-  if (local_y == 0 && local_x == kBlockSize - 1) {
-    s_tile[0 * (kBlockSize + 2) + (local_x + 2)] =
-        src[max(li - 1, 0) * width + min(lj + 1, (int)width - 1)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == 0) {
-    s_tile[(local_y + 2) * (kBlockSize + 2) + 0] =
-        src[min(li + 1, (int)height - 1) * width + max(lj - 1, 0)];
-  }
-  if (local_y == kBlockSize - 1 && local_x == kBlockSize - 1) {
+  if (local_y >= kBlockSize - 2 && local_x >= kBlockSize - 2) {
     s_tile[(local_y + 2) * (kBlockSize + 2) + (local_x + 2)] =
-        src[min(li + 1, (int)height - 1) * width + min(lj + 1, (int)width - 1)];
+        src[min(i - 1 + 2, (int)height - 1) * width +
+            min(j - 1 + 2, (int)width - 1)];
   }
-  // #pragma unroll
-  //   for (int dy = -1; dy <= 1; dy++) {
-  // #pragma unroll
-  //     for (int dx = -1; dx <= 1; dx++) {
-  //       int shared_y = local_y + 1 + dy;
-  //       int shared_x = local_x + 1 + dx;
-  //       int global_y = Clamp(i + dy, 0, (int)height - 1);
-  //       int global_x = Clamp(j + dx, 0, (int)width - 1);
-  //       s_tile[shared_y * (kBlockSize + 2) + shared_x] =
-  //           src[global_y * width + global_x];
-  //     }
-  //   }
   __syncthreads();
   if (i < height && j < width) {
     int g_x = 0, g_y = 0;
