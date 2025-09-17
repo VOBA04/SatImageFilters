@@ -58,7 +58,10 @@ counts = [
     # "1", "2", "5", "10", "50", "100",
     "1000"
 ]
-streams = ["", "-a", "-a -o"]
+streams = [
+    "",
+    # "-a", "-a -o"
+]
 iterations = len(filters) * len(sizes) * len(counts) * len(streams)
 
 output_excel = os.path.join(
