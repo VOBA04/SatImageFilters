@@ -128,11 +128,43 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd /W2 /EHsc /Zc:__cplusplus")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=/W2,/EHsc,/Zc:__cplusplus -Wno-deprecated-gpu-targets")
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:CXX>:/W3>
+        $<$<COMPILE_LANGUAGE:CXX>:/EHsc>
+        $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
+    )
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+
+    # Debug: enable symbols and disable optimizations
+    set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MDd /Zi /Od")
+    set(CMAKE_CUDA_FLAGS_DEBUG  "${CMAKE_CUDA_FLAGS_DEBUG} -G -Xcompiler=/MDd,/Zi,/Od")
+
+    # Release: enable optimizations and define NDEBUG (no debug overhead)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG /MD")
+    set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3 -Xcompiler=/MD")
+
+    # RelWithDebInfo: optimizations with debug info; CUDA with line info (no -G)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /O2 /Zi /DNDEBUG /MD")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -O3 -lineinfo -Xcompiler=/MD")
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -pedantic")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets ") #-G -O0
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+        $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
+    )
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+
+    # Debug: symbols and no optimizations (no -lineinfo with -G to avoid warnings)
+    set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+    set(CMAKE_CUDA_FLAGS_DEBUG  "${CMAKE_CUDA_FLAGS_DEBUG} -g -G -Xcompiler=-O0")
+
+    # Release: strong optimizations and no debug info
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3 -DNDEBUG")
+
+    # RelWithDebInfo: optimized with symbols; CUDA line info helps profiling
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -O3 -lineinfo -DNDEBUG")
 endif()
 
 
