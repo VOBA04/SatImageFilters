@@ -106,10 +106,12 @@ if(OpenCL_FOUND)
     message(STATUS "Найден OpenCL: ${OpenCL_LIBRARIES}")
 else()
     message(STATUS "OpenCL не найден, выполняем сборку")
+    set(OPENCL_HEADERS_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
     execute_process(
         COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader -B ${EXTERNAL_BUILD_DIR}/opencl_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencl_install
                 -DBUILD_SHARED_LIBS=ON
+                -DOPENCL_ICD_LOADER_HEADERS_DIR=${OPENCL_HEADERS_DIR}
         RESULT_VARIABLE OPENCL_CONFIGURE_RESULT
     )
     if(NOT OPENCL_CONFIGURE_RESULT EQUAL 0)
@@ -122,7 +124,9 @@ else()
     if(NOT OPENCL_BUILD_RESULT EQUAL 0)
         message(FATAL_ERROR "Не удалось собрать или установить OpenCL")
     endif()
-    set (OpenCL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
+    list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_BUILD_DIR}/opencl_install")
+    set(OpenCL_INCLUDE_DIR "${OPENCL_HEADERS_DIR}")
+    set(OpenCL_LIBRARY "${EXTERNAL_BUILD_DIR}/opencl_install/lib/libOpenCL.so")
     find_package(OpenCL REQUIRED)
 endif()
 
