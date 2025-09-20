@@ -633,7 +633,7 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
                                        kernel.GetHeight(), rotate);
     checkCudaErrors(cudaFree(d_kernel));
   }
-  checkCudaErrors(cudaDeviceSynchronize());
+  // checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
     checkCudaErrors(cudaFree(d_src));
@@ -685,7 +685,7 @@ TIFFImage TIFFImage::SetKernelSobelSepCuda(const bool shared_memory) const {
   if (shared_memory) {
     CudaSetSobelKernelSmoothShared<<<blocks, threads>>>(d_src, d_g_x, d_g_y,
                                                         height_, width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
     CudaSepKernelDiffShared<<<blocks, threads>>>(d_g_x, d_g_y, d_dst, height_,
                                                  width_);
     // CudaSepKernelDiffShared<<<blocks, threads>>>(d_g_x, d_g_y, d_result_x,
@@ -695,11 +695,11 @@ TIFFImage TIFFImage::SetKernelSobelSepCuda(const bool shared_memory) const {
     // CudaAddAbsMtx<<<blocks, threads>>>(d_result_x, d_result_y, d_dst,
     // height_,
     //                                    width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
   } else {
     CudaSetSobelKernelSmooth<<<blocks, threads>>>(d_src, d_g_x, d_g_y, height_,
                                                   width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
     CudaSepKernelDiff<<<blocks, threads>>>(d_g_x, d_g_y, d_dst, height_,
                                            width_);
     // CudaSepKernelDiff<<<blocks, threads>>>(d_g_x, d_g_y, d_result_x,
@@ -709,7 +709,7 @@ TIFFImage TIFFImage::SetKernelSobelSepCuda(const bool shared_memory) const {
     // CudaAddAbsMtx<<<blocks, threads>>>(d_result_x, d_result_y, d_dst,
     // height_,
     //                                    width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
   }
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
@@ -766,7 +766,7 @@ TIFFImage TIFFImage::SetKernelPrewittSepCuda(const bool shared_memory) const {
   if (shared_memory) {
     CudaSetPrewittKernelAverageShared<<<blocks, threads>>>(d_src, d_g_x, d_g_y,
                                                            height_, width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
     CudaSepKernelDiffShared<<<blocks, threads>>>(d_g_x, d_g_y, d_dst, height_,
                                                  width_);
     // CudaSepKernelDiffShared<<<blocks, threads>>>(d_g_x, d_g_y, d_result_x,
@@ -776,11 +776,11 @@ TIFFImage TIFFImage::SetKernelPrewittSepCuda(const bool shared_memory) const {
     // CudaAddAbsMtx<<<blocks, threads>>>(d_result_x, d_result_y, d_dst,
     // height_,
     //                                    width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
   } else {
     CudaSetPrewittKernelAverage<<<blocks, threads>>>(d_src, d_g_x, d_g_y,
                                                      height_, width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
     CudaSepKernelDiff<<<blocks, threads>>>(d_g_x, d_g_y, d_dst, height_,
                                            width_);
     // CudaSepKernelDiff<<<blocks, threads>>>(d_g_x, d_g_y, d_result_x,
@@ -790,7 +790,7 @@ TIFFImage TIFFImage::SetKernelPrewittSepCuda(const bool shared_memory) const {
     // CudaAddAbsMtx<<<blocks, threads>>>(d_result_x, d_result_y, d_dst,
     // height_,
     //                                    width_);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // checkCudaErrors(cudaDeviceSynchronize());
   }
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
@@ -848,7 +848,7 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma) {
   dim3 blocks((width_ + 1023) / 1024, height_);
   CudaGaussianBlur<<<blocks, threads>>>(d_src, d_dst, height_, width_, d_kernel,
                                         size);
-  checkCudaErrors(cudaDeviceSynchronize());
+  // checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
     checkCudaErrors(cudaFree(d_src));
@@ -906,10 +906,10 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size, const float sigma) {
   dim3 blocks((width_ + 1023) / 1024, height_);
   CudaGaussianBlurSepHorizontal<<<blocks, threads>>>(d_src, d_temp, height_,
                                                      width_, d_kernel, size);
-  checkCudaErrors(cudaDeviceSynchronize());
+  // checkCudaErrors(cudaDeviceSynchronize());
   CudaGaussianBlurSepVertical<<<blocks, threads>>>(d_temp, d_dst, height_,
                                                    width_, d_kernel, size);
-  checkCudaErrors(cudaDeviceSynchronize());
+  // checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
     checkCudaErrors(cudaFree(d_src));
