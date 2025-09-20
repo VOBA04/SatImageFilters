@@ -32,7 +32,7 @@ std::ostream& operator<<(std::ostream& out, Functions f) {
 
 Functions CheckFunctionArg(std::string arg) {
   std::vector<std::string> args(
-      {"Sobel", "SobelSep", "Prewitt", "PrewittSep" /*, "Gauss", "GaussSep"*/});
+      {"Sobel", "SobelSep", "Prewitt", "PrewittSep", "Gauss", "GaussSep"});
   auto it = std::find(args.begin(), args.end(), arg);
   if (it == args.end()) {
     throw std::invalid_argument("Wrong function argument: " + arg);

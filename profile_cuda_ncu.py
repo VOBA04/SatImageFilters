@@ -20,6 +20,23 @@ parser.add_argument(
     "-m", "--shared_memory", action="store_true", help="Enable shared memory."
 )
 parser.add_argument(
+    "--gauss-only",
+    action="store_true",
+    help="Run only Gaussian filters (Gauss, GaussSep).",
+)
+parser.add_argument(
+    "--gauss-size",
+    type=int,
+    default=3,
+    help="Gaussian kernel size to pass for Gauss/GaussSep (default: 3)",
+)
+parser.add_argument(
+    "--gauss-sigma",
+    type=float,
+    default=0.0,
+    help="Gaussian kernel sigma to pass for Gauss/GaussSep (default: 0.0)",
+)
+parser.add_argument(
     "--save-mode",
     choices=["single", "iterative"],
     default="single",
@@ -30,6 +47,9 @@ args = parser.parse_args()
 executable = args.executable
 output_dir = args.output_dir
 shared_memory_flag = args.shared_memory
+gauss_only = args.gauss_only
+gauss_size = args.gauss_size
+gauss_sigma = args.gauss_sigma
 save_mode = args.save_mode
 
 if not os.path.isfile(executable):
@@ -42,7 +62,11 @@ elif not os.path.isdir(output_dir):
     print(f"Ошибка: '{output_dir}' не является директорией.")
     sys.exit(1)
 
-filters = ["Sobel", "SobelSep", "Prewitt", "PrewittSep"]
+filters = (
+    ["Gauss", "GaussSep"]
+    if gauss_only
+    else ["Sobel", "SobelSep", "Prewitt", "PrewittSep"]
+)
 sizes = [
     # "10x10",
     # "100x100",
@@ -162,6 +186,9 @@ for f in filters:
             iteration += 1
             command_prefix = "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
             command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
+            # Append Gaussian parameters when profiling Gaussian filters
+            if f in ("Gauss", "GaussSep"):
+                command += f" --gauss_size {gauss_size} --gauss_sigma {gauss_sigma}"
             if shared_memory_flag:
                 command += " -m"
             print(f"[{iteration}/{iterations}] Выполняется: {command}")
