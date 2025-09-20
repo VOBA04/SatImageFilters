@@ -62,10 +62,13 @@ void TIFFImage::EnsureOpenCLInitialized() {
           clCreateContext(nullptr, 1, &device, nullptr, nullptr, &err);
       CheckCLError(err, "clCreateContext(GPU)");
 #if defined(CL_VERSION_2_0)
-      cl_queue_ = clCreateCommandQueueWithProperties(cl_context_, device,
-                                                     nullptr, &err);
+      const cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
+                                           CL_QUEUE_PROFILING_ENABLE, 0};
+      cl_queue_ =
+          clCreateCommandQueueWithProperties(cl_context_, device, props, &err);
 #else
-      cl_queue_ = clCreateCommandQueue(cl_context_, device, 0, &err);
+      cl_queue_ = clCreateCommandQueue(cl_context_, device,
+                                       CL_QUEUE_PROFILING_ENABLE, &err);
 #endif
       CheckCLError(err, "clCreateCommandQueue");
       cl_device_ = device;
@@ -87,10 +90,13 @@ void TIFFImage::EnsureOpenCLInitialized() {
           clCreateContext(nullptr, 1, &device, nullptr, nullptr, &err);
       CheckCLError(err, "clCreateContext(CPU)");
 #if defined(CL_VERSION_2_0)
-      cl_queue_ = clCreateCommandQueueWithProperties(cl_context_, device,
-                                                     nullptr, &err);
+      const cl_queue_properties props[] = {CL_QUEUE_PROPERTIES,
+                                           CL_QUEUE_PROFILING_ENABLE, 0};
+      cl_queue_ =
+          clCreateCommandQueueWithProperties(cl_context_, device, props, &err);
 #else
-      cl_queue_ = clCreateCommandQueue(cl_context_, device, 0, &err);
+      cl_queue_ = clCreateCommandQueue(cl_context_, device,
+                                       CL_QUEUE_PROFILING_ENABLE, &err);
 #endif
       CheckCLError(err, "clCreateCommandQueue");
       cl_device_ = device;
@@ -287,6 +293,19 @@ static inline size_t RoundUp(size_t value, size_t multiple) {
   return (value + multiple - 1) / multiple * multiple;
 }
 
+namespace {
+inline double EventDurationMs(cl_event evt) {
+  cl_ulong ts = 0, te = 0;
+  CheckCLError(clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START,
+                                       sizeof(ts), &ts, nullptr),
+               "clGetEventProfilingInfo(START)");
+  CheckCLError(clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END,
+                                       sizeof(te), &te, nullptr),
+               "clGetEventProfilingInfo(END)");
+  return (te - ts) * 1e-6;  // ns -> ms
+}
+}  // namespace
+
 TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                                      const bool shared_memory,
                                      const bool rotate) const {
@@ -391,9 +410,19 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
   size_t global[2] = {RoundUp(width_, kBlockSize),
                       RoundUp(height_, kBlockSize)};
   size_t local[2] = {kBlockSize, kBlockSize};
+  cl_event evt_apply = nullptr;
   CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
-                                      0, nullptr, nullptr),
+                                      0, nullptr, &evt_apply),
                "clEnqueueNDRangeKernel");
+  CheckCLError(clWaitForEvents(1, &evt_apply), "clWaitForEvents");
+  if (cl_profile_enabled_) {
+    TIFFImage::ClProfileRecord rec;
+    rec.name = used_local_kernel ? std::string("SetKernel(local)")
+                                 : std::string("SetKernel");
+    rec.ms = EventDurationMs(evt_apply);
+    cl_profile_records_.push_back(rec);
+  }
+  clReleaseEvent(evt_apply);
   CheckCLError(clFinish(cl_queue_), "clFinish");
 
   // Чтение результата
@@ -415,6 +444,14 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
   std::memcpy(result.image_, h_dst, image_size);
   delete[] h_dst;
   return result;
+}
+
+// ---- Profiling controls ----
+void TIFFImage::OpenCLProfilingEnable(bool enable) {
+  cl_profile_enabled_ = enable;
+}
+void TIFFImage::OpenCLProfilingClear() {
+  cl_profile_records_.clear();
 }
 
 TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
@@ -462,9 +499,16 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
     }
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
-                                        0, nullptr, nullptr),
+                                        0, nullptr, &evt),
                  "clEnqueueNDRangeKernel");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string(name), EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(k);
   };
 
@@ -484,9 +528,17 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &ry), "ry");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
-                                        0, nullptr, nullptr),
+                                        0, nullptr, &evt),
                  "enqueue diff");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("SepKernelDiff"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(k);
   }
   CheckCLError(clFinish(cl_queue_), "clFinish2");
@@ -559,9 +611,16 @@ TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
     }
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
-                                        0, nullptr, nullptr),
+                                        0, nullptr, &evt),
                  "clEnqueueNDRangeKernel");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string(name), EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(k);
   };
 
@@ -580,9 +639,17 @@ TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &ry), "ry");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
-                                        0, nullptr, nullptr),
+                                        0, nullptr, &evt),
                  "enqueue diff");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("SepKernelDiff"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(k);
   }
   CheckCLError(clFinish(cl_queue_), "clFinish2");
@@ -654,9 +721,19 @@ TIFFImage TIFFImage::GaussianBlurOpenCL(const size_t size, const float sigma) {
   size_t global[2] = {RoundUp(width_, kBlockSize),
                       RoundUp(height_, kBlockSize)};
   size_t local[2] = {kBlockSize, kBlockSize};
-  CheckCLError(clEnqueueNDRangeKernel(cl_queue_, kern, 2, nullptr, global,
-                                      local, 0, nullptr, nullptr),
-               "enqueue gaussian");
+  {
+    cl_event evt = nullptr;
+    CheckCLError(clEnqueueNDRangeKernel(cl_queue_, kern, 2, nullptr, global,
+                                        local, 0, nullptr, &evt),
+                 "enqueue gaussian");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("GaussianBlur"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
+  }
   CheckCLError(clFinish(cl_queue_), "finish gaussian");
 
   uint16_t* h_dst = new uint16_t[width_ * height_];
@@ -719,9 +796,17 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size,
     CheckCLError(
         clSetKernelArg(kern, arg++, sizeof(cl_mem), &cl_gaussian_kernel_), "k");
     CheckCLError(clSetKernelArg(kern, arg++, sizeof(int), &ksize), "ksize");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, kern, 2, nullptr, global,
-                                        local, 0, nullptr, nullptr),
+                                        local, 0, nullptr, &evt),
                  "enqueue horiz");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("GaussianBlurSepHorizontal"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(kern);
   }
   CheckCLError(clFinish(cl_queue_), "finish horiz");
@@ -738,9 +823,17 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size,
     CheckCLError(
         clSetKernelArg(kern, arg++, sizeof(cl_mem), &cl_gaussian_kernel_), "k");
     CheckCLError(clSetKernelArg(kern, arg++, sizeof(int), &ksize), "ksize");
+    cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, kern, 2, nullptr, global,
-                                        local, 0, nullptr, nullptr),
+                                        local, 0, nullptr, &evt),
                  "enqueue vert");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("GaussianBlurSepVertical"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
     clReleaseKernel(kern);
   }
   CheckCLError(clFinish(cl_queue_), "finish vert");

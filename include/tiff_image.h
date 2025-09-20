@@ -79,6 +79,14 @@ class TIFFImage {
   std::vector<ImageOperation> cl_image_operations_{};
   bool cl_allocated_ = false;
 
+  // Профилирование OpenCL: хранение событий/метрик по ядрам
+  struct ClProfileRecord {
+    std::string name;
+    double ms = 0.0;  // продолжительность выполнения ядра на устройстве
+  };
+  mutable bool cl_profile_enabled_ = false;
+  mutable std::vector<ClProfileRecord> cl_profile_records_{};
+
   // Вспомогательные методы OpenCL (инициализация/компиляция/очистка)
   void EnsureOpenCLInitialized();
   void EnsureOpenCLProgramBuilt();
@@ -297,6 +305,20 @@ class TIFFImage {
   void ReallocateOpenCLMemory();
   void CopyImageToOpenCLDevice();
   void FreeOpenCLMemory();
+
+  // Управление профилированием OpenCL
+  void OpenCLProfilingEnable(bool enable = true);
+  void OpenCLProfilingClear();
+  const std::vector<ClProfileRecord>& OpenCLProfilingRecords() const {
+    return cl_profile_records_;
+  }
+  double OpenCLProfilingTotalMs() const {
+    double sum = 0.0;
+    for (const auto& r : cl_profile_records_) {
+      sum += r.ms;
+    }
+    return sum;
+  }
 
   /**
    * @brief Оператор сравнения.

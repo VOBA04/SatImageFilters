@@ -283,6 +283,7 @@ add_executable(unit_tests ${TEST_SOURCES})
 add_executable(benchmark_gpu "${MAINS_DIR}/benchmark_gpu.cpp")
 add_executable(benchmark_cpu "${MAINS_DIR}/benchmark_cpu.cpp")
 add_executable(main_opencl "${MAINS_DIR}/main_opencl.cpp")
+add_executable(benchmark_opencl "${MAINS_DIR}/benchmark_opencl.cpp")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE common)
 target_link_libraries(speedtest PRIVATE common)
@@ -290,8 +291,9 @@ target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtes
 target_link_libraries(benchmark_gpu PRIVATE common)
 target_link_libraries(benchmark_cpu PRIVATE common)
 target_link_libraries(main_opencl PRIVATE common OpenCL::OpenCL)
+target_link_libraries(benchmark_opencl PRIVATE common OpenCL::OpenCL)
 
-foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu benchmark_cpu)
+foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu benchmark_cpu benchmark_opencl)
     if(WIN32)
          if(EXISTS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin")
             file(GLOB TIFF_DLLS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin/*.dll")
@@ -315,6 +317,7 @@ add_custom_target(copy_opencl_kernels ALL
     COMMENT "Copying OpenCL kernels.cl to build dir"
 )
 add_dependencies(main_opencl copy_opencl_kernels)
+add_dependencies(benchmark_opencl copy_opencl_kernels)
 if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
     file(GLOB OPENCV_DLLS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin/*.dll")
     foreach(dll ${OPENCV_DLLS})
