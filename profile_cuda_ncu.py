@@ -155,6 +155,7 @@ def parse_ncu_output(output, f, s, c):
             if pd.notna(total_time):
                 total_time = convert_to_ms(total_time, unit)
                 print(f"Суммарное время: {total_time} ms для {f}, {s}, {c}")
+                print(f"Среднее время на изображение: {total_time / float(c)} ms")
             else:
                 print(f"Некорректное значение времени: {total_time} для {f}, {s}, {c}")
         else:
@@ -186,7 +187,6 @@ for f in filters:
             iteration += 1
             command_prefix = "LC_NUMERIC=C " if sys.platform.startswith("linux") else ""
             command = f"{command_prefix}ncu --csv --metrics gpu__time_duration.sum {executable} -f {f} -s {s} -c {c}"
-            # Append Gaussian parameters when profiling Gaussian filters
             if f in ("Gauss", "GaussSep"):
                 command += f" --gauss_size {gauss_size} --gauss_sigma {gauss_sigma}"
             if shared_memory_flag:
