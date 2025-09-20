@@ -1,5 +1,4 @@
 #pragma once
-#include <cuda_runtime.h>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -11,9 +10,6 @@ class CudaMemManager {
   float gaussian_sigma_ = 0.0f;
   uint16_t* d_src_ = nullptr;
   uint16_t* d_dst_ = nullptr;
-  // optional ping-pong buffers (second slot)
-  uint16_t* d_src_2_ = nullptr;
-  uint16_t* d_dst_2_ = nullptr;
   int* d_sep_g_x_ = nullptr;
   int* d_sep_g_y_ = nullptr;
   int* d_sep_result_x_ = nullptr;
@@ -22,7 +18,6 @@ class CudaMemManager {
   float* d_gaussian_sep_temp_ = nullptr;
   std::vector<ImageOperation> image_operations_;
   bool is_allocated_ = false;
-  bool pingpong_allocated_ = false;
 
   void InitializeGaussianKernel();
   void ReallocateGaussianKernel();
@@ -50,16 +45,4 @@ class CudaMemManager {
   float* GetDeviceGaussianKernel() const;
   float* GetDeviceGaussianSepTemp() const;
   bool IsAllocated() const;
-
-  // Ping-pong support
-  void EnsurePingPongAllocated();
-  uint16_t* GetDeviceSrcSlot(int slot) const;
-  uint16_t* GetDeviceDstSlot(int slot) const;
-  void CopyImageToDeviceAsyncSlot(const uint16_t* src, cudaStream_t stream,
-                                  int slot);
-  void CopyImageFromDeviceAsyncSlot(uint16_t* dst, cudaStream_t stream,
-                                    int slot);
-
-  void CopyImageToDeviceAsync(const uint16_t* src, cudaStream_t stream);
-  void CopyImageFromDeviceAsync(uint16_t* dst, cudaStream_t stream);
 };
