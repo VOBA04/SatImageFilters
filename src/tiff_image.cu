@@ -53,7 +53,7 @@ __global__ void CudaSetKernel(uint16_t* src, uint16_t* dst, size_t height,
         g += src[y * width + x] * kernel[k * ksize + l];
       }
     }
-    dst[i * width + j] = Clamp(g, 0, 65535);
+    dst[i * width + j] = min(abs(g), 65535);
   }
 }
 
@@ -83,31 +83,30 @@ __global__ void CudaSetKernelShared(uint16_t* src, uint16_t* dst, size_t height,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   extern __shared__ uint16_t s_tile[];
   const int radius = static_cast<int>(ksize) / 2;
-  const int tile_w = kBlockSize + 2 * radius;
-  const int tile_h = kBlockSize + 2 * radius;
+  const int tile_r = kBlockSize + 2 * radius;
   const int local_x = threadIdx.x;
   const int local_y = threadIdx.y;
   const int li = Clamp(i - radius, 0, static_cast<int>(height) - 1);
   const int lj = Clamp(j - radius, 0, static_cast<int>(width) - 1);
-  s_tile[local_y * tile_w + local_x] =
+  s_tile[local_y * tile_r + local_x] =
       src[static_cast<size_t>(li) * width + lj];
   if (local_y < 2 * radius) {
     int gy = min(i - radius + static_cast<int>(kBlockSize),
                  static_cast<int>(height) - 1);
-    s_tile[(local_y + kBlockSize) * tile_w + local_x] =
+    s_tile[(local_y + kBlockSize) * tile_r + local_x] =
         src[static_cast<size_t>(gy) * width + lj];
   }
   if (local_x < 2 * radius) {
     int gx = min(j - radius + static_cast<int>(kBlockSize),
                  static_cast<int>(width) - 1);
-    s_tile[local_y * tile_w + (local_x + kBlockSize)] =
+    s_tile[local_y * tile_r + (local_x + kBlockSize)] =
         src[static_cast<size_t>(li) * width + gx];
   }
   if (local_y >= static_cast<int>(kBlockSize) - 2 * radius &&
       local_x >= static_cast<int>(kBlockSize) - 2 * radius) {
     int gy = min(i + radius, static_cast<int>(height) - 1);
     int gx = min(j + radius, static_cast<int>(width) - 1);
-    s_tile[(local_y + 2 * radius) * tile_w + (local_x + 2 * radius)] =
+    s_tile[(local_y + 2 * radius) * tile_r + (local_x + 2 * radius)] =
         src[static_cast<size_t>(gy) * width + gx];
   }
   __syncthreads();
@@ -116,11 +115,11 @@ __global__ void CudaSetKernelShared(uint16_t* src, uint16_t* dst, size_t height,
     const int k_int = static_cast<int>(ksize);
     for (int k = 0; k < k_int; ++k) {
       for (int l = 0; l < k_int; ++l) {
-        int val = s_tile[(threadIdx.y + k) * tile_w + (threadIdx.x + l)];
+        int val = s_tile[(threadIdx.y + k) * tile_r + (threadIdx.x + l)];
         g += val * kernel[k * k_int + l];
       }
     }
-    dst[i * width + j] = Clamp(g, 0, 65535);
+    dst[i * width + j] = min(abs(g), 65535);
   }
 }
 
@@ -131,31 +130,30 @@ __global__ void CudaSetKernelRotateShared(uint16_t* src, uint16_t* dst,
   int j = blockIdx.x * blockDim.x + threadIdx.x;
   extern __shared__ uint16_t s_tile[];
   const int radius = static_cast<int>(ksize) / 2;
-  const int tile_w = kBlockSize + 2 * radius;
-  const int tile_h = kBlockSize + 2 * radius;
+  const int tile_r = kBlockSize + 2 * radius;
   const int local_x = threadIdx.x;
   const int local_y = threadIdx.y;
   const int li = Clamp(i - radius, 0, static_cast<int>(height) - 1);
   const int lj = Clamp(j - radius, 0, static_cast<int>(width) - 1);
-  s_tile[local_y * tile_w + local_x] =
+  s_tile[local_y * tile_r + local_x] =
       src[static_cast<size_t>(li) * width + lj];
   if (local_y < 2 * radius) {
     int gy = min(i - radius + static_cast<int>(kBlockSize),
                  static_cast<int>(height) - 1);
-    s_tile[(local_y + kBlockSize) * tile_w + local_x] =
+    s_tile[(local_y + kBlockSize) * tile_r + local_x] =
         src[static_cast<size_t>(gy) * width + lj];
   }
   if (local_x < 2 * radius) {
     int gx = min(j - radius + static_cast<int>(kBlockSize),
                  static_cast<int>(width) - 1);
-    s_tile[local_y * tile_w + (local_x + kBlockSize)] =
+    s_tile[local_y * tile_r + (local_x + kBlockSize)] =
         src[static_cast<size_t>(li) * width + gx];
   }
   if (local_y >= static_cast<int>(kBlockSize) - 2 * radius &&
       local_x >= static_cast<int>(kBlockSize) - 2 * radius) {
     int gy = min(i + radius, static_cast<int>(height) - 1);
     int gx = min(j + radius, static_cast<int>(width) - 1);
-    s_tile[(local_y + 2 * radius) * tile_w + (local_x + 2 * radius)] =
+    s_tile[(local_y + 2 * radius) * tile_r + (local_x + 2 * radius)] =
         src[static_cast<size_t>(gy) * width + gx];
   }
   __syncthreads();
@@ -164,7 +162,7 @@ __global__ void CudaSetKernelRotateShared(uint16_t* src, uint16_t* dst,
     const int k_int = static_cast<int>(ksize);
     for (int k = 0; k < k_int; ++k) {
       for (int l = 0; l < k_int; ++l) {
-        int val = s_tile[(threadIdx.y + k) * tile_w + (threadIdx.x + l)];
+        int val = s_tile[(threadIdx.y + k) * tile_r + (threadIdx.x + l)];
         g_x += val * kernel[k * k_int + l];
         g_y += val * kernel[(k_int - 1 - l) * k_int + k];
       }
@@ -718,7 +716,8 @@ TIFFImage TIFFImage::SetKernelCuda(const Kernel<int>& kernel,
     size_t kernel_size = kernel.GetHeight() * kernel.GetWidth() * sizeof(int);
     for (size_t i = 0; i < kernel.GetHeight(); i++) {
       for (size_t j = 0; j < kernel.GetWidth(); j++) {
-        h_kernel[i * kernel.GetWidth() + j] = kernel.Get(i, j);
+        // Kernel::Get expects (x, y) i.e., (column, row)
+        h_kernel[i * kernel.GetWidth() + j] = kernel.Get(j, i);
       }
     }
     int* d_kernel;
