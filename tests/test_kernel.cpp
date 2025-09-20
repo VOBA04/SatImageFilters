@@ -150,8 +150,10 @@ TEST(KernelTest, KernelCopyKernelTo) {
 }
 
 TEST(KernelTest, KernelDestructor) {
-  Kernel<int> kernel(3, 3, {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, true);
-  EXPECT_NO_THROW(kernel.~Kernel());
+  {
+    Kernel<int> kernel(3, 3, {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}, true);
+    SUCCEED();
+  }
 }
 
 TEST(KernelTest, KernelEquality) {

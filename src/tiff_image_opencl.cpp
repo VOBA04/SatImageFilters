@@ -12,6 +12,7 @@
 
 namespace {
 constexpr size_t kBlockSize = 16;
+constexpr size_t kCudaLinearBlock = 1024;  
 
 inline void CheckCLError(cl_int err, const char* where) {
   if (err != CL_SUCCESS) {
@@ -30,7 +31,7 @@ std::string ReadTextFile(const std::string& path) {
                       std::istreambuf_iterator<char>());
   return content;
 }
-}  // namespace
+} 
 
 void TIFFImage::EnsureOpenCLInitialized() {
   if (cl_context_ != nullptr && cl_queue_ != nullptr && cl_device_ != nullptr) {
@@ -46,7 +47,6 @@ void TIFFImage::EnsureOpenCLInitialized() {
   std::vector<cl_platform_id> platforms(num_platforms);
   CheckCLError(clGetPlatformIDs(num_platforms, platforms.data(), nullptr),
                "clGetPlatformIDs(list)");
-
   cl_device_id device = nullptr;
   for (auto pid : platforms) {
     cl_uint num_devices = 0;
@@ -75,7 +75,6 @@ void TIFFImage::EnsureOpenCLInitialized() {
       return;
     }
   }
-  // GPU не найден, пробуем CPU
   for (auto pid : platforms) {
     cl_uint num_devices = 0;
     cl_int res =
@@ -121,7 +120,6 @@ void TIFFImage::EnsureOpenCLProgramBuilt() {
   CheckCLError(err, "clCreateProgramWithSource");
   err = clBuildProgram(cl_program_, 1, &cl_device_, "", nullptr, nullptr);
   if (err != CL_SUCCESS) {
-    // Получим лог сборки
     size_t log_size = 0;
     clGetProgramBuildInfo(cl_program_, cl_device_, CL_PROGRAM_BUILD_LOG, 0,
                           nullptr, &log_size);
@@ -158,7 +156,6 @@ void TIFFImage::EnsureGaussianKernelBuffer(size_t kernel_size, float sigma) {
       std::abs(cl_gaussian_sigma_ - sigma) < 1e-6) {
     return;
   }
-  // Пере-выделить
   if (cl_gaussian_kernel_ != nullptr) {
     clReleaseMemObject(cl_gaussian_kernel_);
     cl_gaussian_kernel_ = nullptr;
@@ -170,7 +167,6 @@ void TIFFImage::EnsureGaussianKernelBuffer(size_t kernel_size, float sigma) {
   cl_gaussian_kernel_ =
       clCreateBuffer(cl_context_, CL_MEM_READ_ONLY, bytes, nullptr, &err);
   CheckCLError(err, "clCreateBuffer(gaussian_kernel)");
-  // Копируем на устройство
   float* h_kernel = nullptr;
   kernel.CopyKernelTo(&h_kernel);
   CheckCLError(clEnqueueWriteBuffer(cl_queue_, cl_gaussian_kernel_, CL_TRUE, 0,
@@ -207,11 +203,8 @@ void TIFFImage::AllocateOpenCLMemory() {
   cl_dst_ = clCreateBuffer(cl_context_, CL_MEM_READ_WRITE, cl_image_size_,
                            nullptr, &err);
   CheckCLError(err, "clCreateBuffer(dst)");
-
-  // Доп. буферы для разделённых операций и гаусса
   size_t temps_size_i = width_ * height_ * sizeof(int);
   size_t temps_size_f = width_ * height_ * sizeof(float);
-
   bool need_sep = false;
   for (auto op : cl_image_operations_) {
     if (op == ImageOperation::Sobel || op == ImageOperation::Prewitt ||
@@ -233,7 +226,6 @@ void TIFFImage::AllocateOpenCLMemory() {
                                       temps_size_i, nullptr, &err);
     CheckCLError(err, "clCreateBuffer(result_y)");
   }
-
   bool need_gauss_temp = false;
   for (auto op : cl_image_operations_) {
     if (op == ImageOperation::GaussianBlurSep) {
@@ -245,7 +237,6 @@ void TIFFImage::AllocateOpenCLMemory() {
                                            temps_size_f, nullptr, &err);
     CheckCLError(err, "clCreateBuffer(gaussian_temp)");
   }
-
   if (cl_gaussian_kernel_size_ > 0) {
     EnsureGaussianKernelBuffer(cl_gaussian_kernel_size_, cl_gaussian_sigma_);
   }
@@ -304,7 +295,7 @@ inline double EventDurationMs(cl_event evt) {
                "clGetEventProfilingInfo(END)");
   return (te - ts) * 1e-6;  // ns -> ms
 }
-}  // namespace
+}  
 
 TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                                      const bool shared_memory,
@@ -314,10 +305,11 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
   cl_kernel k = nullptr;
   bool generic = false;
   const int ksize_candidate = static_cast<int>(kernel.GetHeight());
-  const bool can_use_local = shared_memory && (ksize_candidate == 3);
+  const bool can_use_local_any = shared_memory && (ksize_candidate % 2 == 1);
+  const bool can_use_local_3x3 = shared_memory && (ksize_candidate == 3);
   bool used_local_kernel = false;
   if (kernel == kKernelSobel) {
-    if (can_use_local) {
+    if (can_use_local_3x3) {
       k = clCreateKernel(cl_program_, "SobelLocal", &err);
       CheckCLError(err, "clCreateKernel(SobelLocal)");
       used_local_kernel = true;
@@ -326,7 +318,7 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
       CheckCLError(err, "clCreateKernel(Sobel)");
     }
   } else if (kernel == kKernelPrewitt) {
-    if (can_use_local) {
+    if (can_use_local_3x3) {
       k = clCreateKernel(cl_program_, "PrewittLocal", &err);
       CheckCLError(err, "clCreateKernel(PrewittLocal)");
       used_local_kernel = true;
@@ -335,10 +327,10 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
       CheckCLError(err, "clCreateKernel(Prewitt)");
     }
   } else {
-    if (can_use_local) {
-      k = clCreateKernel(cl_program_, "ApplyKernel3Local", &err);
-      CheckCLError(err, "clCreateKernel(ApplyKernel3Local)");
-      generic = true;  // still needs k/ksize/rotate
+    if (can_use_local_any) {
+      k = clCreateKernel(cl_program_, "ApplyKernelLocal", &err);
+      CheckCLError(err, "clCreateKernel(ApplyKernelLocal)");
+      generic = true;  
       used_local_kernel = true;
     } else {
       k = clCreateKernel(cl_program_, "ApplyKernel", &err);
@@ -346,8 +338,6 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
       generic = true;
     }
   }
-
-  // Выделение/копирование
   cl_mem src = cl_src_, dst = cl_dst_;
   bool ephemeral = false;
   size_t image_size = width_ * height_ * sizeof(uint16_t);
@@ -363,8 +353,6 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src tmp)");
   }
-
-  // Параметры ядра
   int arg = 0;
   CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &src),
                "clSetKernelArg(src)");
@@ -375,7 +363,6 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
                "clSetKernelArg(h)");
   CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w),
                "clSetKernelArg(w)");
-
   cl_mem kernel_buf = nullptr;
   int ksize = static_cast<int>(kernel.GetHeight());
   int rot = rotate ? 1 : 0;
@@ -397,19 +384,38 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
     CheckCLError(clSetKernelArg(k, arg++, sizeof(int), &rot),
                  "clSetKernelArg(rotate)");
   }
-
   if (used_local_kernel) {
     size_t local_x = kBlockSize;
     size_t local_y = kBlockSize;
-    size_t tile_elems = (local_x + 2) * (local_y + 2);
+    int radius = 1;
+    if (generic && can_use_local_any) {
+      radius = ksize_candidate / 2;
+    }
+    size_t tile_elems =
+        (local_x + 2 * (size_t)radius) * (local_y + 2 * (size_t)radius);
     size_t local_bytes = tile_elems * sizeof(cl_ushort);
     CheckCLError(clSetKernelArg(k, arg++, local_bytes, nullptr),
                  "clSetKernelArg(local tile)");
   }
-
-  size_t global[2] = {RoundUp(width_, kBlockSize),
-                      RoundUp(height_, kBlockSize)};
-  size_t local[2] = {kBlockSize, kBlockSize};
+  size_t global[2];
+  size_t local[2];
+  if (used_local_kernel) {
+    global[0] = RoundUp(width_, kBlockSize);
+    global[1] = RoundUp(height_, kBlockSize);
+    local[0] = kBlockSize;
+    local[1] = kBlockSize;
+  } else {
+    size_t max_wg = 0;
+    CheckCLError(clGetDeviceInfo(cl_device_, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                                 sizeof(max_wg), &max_wg, nullptr),
+                 "clGetDeviceInfo(MAX_WORK_GROUP_SIZE)");
+    size_t linear =
+        std::min(kCudaLinearBlock, max_wg > 0 ? max_wg : kCudaLinearBlock);
+    local[0] = linear;
+    local[1] = 1;
+    global[0] = RoundUp(width_, linear);
+    global[1] = height_;
+  }
   cl_event evt_apply = nullptr;
   CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
                                       0, nullptr, &evt_apply),
@@ -424,8 +430,6 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
   }
   clReleaseEvent(evt_apply);
   CheckCLError(clFinish(cl_queue_), "clFinish");
-
-  // Чтение результата
   uint16_t* h_dst = new uint16_t[width_ * height_];
   CheckCLError(clEnqueueReadBuffer(cl_queue_, dst, CL_TRUE, 0, image_size,
                                    h_dst, 0, nullptr, nullptr),
@@ -439,14 +443,12 @@ TIFFImage TIFFImage::SetKernelOpenCL(const Kernel<int>& kernel,
     clReleaseMemObject(src);
     clReleaseMemObject(dst);
   }
-
   TIFFImage result(*this);
   std::memcpy(result.image_, h_dst, image_size);
   delete[] h_dst;
   return result;
 }
 
-// ---- Profiling controls ----
 void TIFFImage::OpenCLProfilingEnable(bool enable) {
   cl_profile_enabled_ = enable;
 }
@@ -454,8 +456,7 @@ void TIFFImage::OpenCLProfilingClear() {
   cl_profile_records_.clear();
 }
 
-TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
-    const bool /*shared_memory*/) const {
+TIFFImage TIFFImage::SetKernelSobelSepOpenCL(const bool shared_memory) const {
   const_cast<TIFFImage*>(this)->EnsureOpenCLProgramBuilt();
   cl_int err;
   bool ephemeral = false;
@@ -482,50 +483,98 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src)");
   }
-
   size_t h = height_, w = width_;
-  size_t global[2] = {RoundUp(width_, kBlockSize),
-                      RoundUp(height_, kBlockSize)};
-  size_t local[2] = {kBlockSize, kBlockSize};
-
-  auto run2 = [&](const char* name, cl_mem a0, cl_mem a1, cl_mem a2) {
-    cl_kernel k = clCreateKernel(cl_program_, name, &err);
-    CheckCLError(err, "clCreateKernel");
+  size_t max_wg = 0;
+  CheckCLError(clGetDeviceInfo(cl_device_, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                               sizeof(max_wg), &max_wg, nullptr),
+               "clGetDeviceInfo(MAX_WORK_GROUP_SIZE)");
+  size_t linear =
+      std::min(kCudaLinearBlock, max_wg > 0 ? max_wg : kCudaLinearBlock);
+  size_t global[2] = {RoundUp(width_, linear), height_};
+  size_t local[2] = {linear, 1};
+  if (shared_memory) {
+    size_t global_2d[2] = {RoundUp(width_, kBlockSize),
+                           RoundUp(height_, kBlockSize)};
+    size_t local_2d[2] = {kBlockSize, kBlockSize};
+    cl_kernel k = clCreateKernel(cl_program_, "SobelSmoothLocal", &err);
+    CheckCLError(err, "clCreateKernel(SobelSmoothLocal)");
     int arg = 0;
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a0), "arg0");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a1), "arg1");
-    if (a2 != nullptr) {
-      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg2");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &src), "src");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    size_t tile_bytes = (kBlockSize + 2) * (kBlockSize + 2) * sizeof(cl_ushort);
+    CheckCLError(clSetKernelArg(k, arg++, tile_bytes, nullptr), "local tile");
+    cl_event evt = nullptr;
+    CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global_2d,
+                                        local_2d, 0, nullptr, &evt),
+                 "enqueue SobelSmoothLocal");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("SobelSmoothLocal"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
     }
+    clReleaseEvent(evt);
+    clReleaseKernel(k);
+  } else {
+    cl_kernel k = clCreateKernel(cl_program_, "SobelSmooth", &err);
+    CheckCLError(err, "clCreateKernel(SobelSmooth)");
+    int arg = 0;
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &src), "src");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
                                         0, nullptr, &evt),
-                 "clEnqueueNDRangeKernel");
+                 "enqueue SobelSmooth");
     CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
     if (cl_profile_enabled_) {
-      TIFFImage::ClProfileRecord rec{std::string(name), EventDurationMs(evt)};
+      TIFFImage::ClProfileRecord rec{std::string("SobelSmooth"),
+                                     EventDurationMs(evt)};
       cl_profile_records_.push_back(rec);
     }
     clReleaseEvent(evt);
     clReleaseKernel(k);
-  };
-
-  // 1) Smooth
-  run2("SobelSmooth", src, gx, nullptr);
-  run2("SobelSmoothY", src, gy,
-       nullptr);  // используем отдельное ядро для Y, см. kernels.cl
+  }
   CheckCLError(clFinish(cl_queue_), "clFinish1");
-  // 2) Diff
-  {
+  if (shared_memory) {
+    size_t global_2d[2] = {RoundUp(width_, kBlockSize),
+                           RoundUp(height_, kBlockSize)};
+    size_t local_2d[2] = {kBlockSize, kBlockSize};
+    cl_kernel k = clCreateKernel(cl_program_, "SepKernelDiffLocal", &err);
+    CheckCLError(err, "clCreateKernel(SepKernelDiffLocal)");
+    int arg = 0;
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &dst), "dst");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    size_t lbytes = (kBlockSize + 2) * (kBlockSize + 2) * sizeof(cl_int);
+    CheckCLError(clSetKernelArg(k, arg++, lbytes, nullptr), "tilex");
+    CheckCLError(clSetKernelArg(k, arg++, lbytes, nullptr), "tiley");
+    cl_event evt = nullptr;
+    CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global_2d,
+                                        local_2d, 0, nullptr, &evt),
+                 "enqueue diff local");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("SepKernelDiffLocal"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
+    clReleaseKernel(k);
+  } else {
     cl_kernel k = clCreateKernel(cl_program_, "SepKernelDiff", &err);
     CheckCLError(err, "clCreateKernel(SepKernelDiff)");
     int arg = 0;
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &rx), "rx");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &ry), "ry");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &dst), "dst");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     cl_event evt = nullptr;
@@ -542,15 +591,10 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
     clReleaseKernel(k);
   }
   CheckCLError(clFinish(cl_queue_), "clFinish2");
-  // 3) AddAbs
-  run2("AddAbsMtx", rx, ry, dst);
-  CheckCLError(clFinish(cl_queue_), "clFinish3");
-
   uint16_t* h_dst = new uint16_t[width_ * height_];
   CheckCLError(clEnqueueReadBuffer(cl_queue_, dst, CL_TRUE, 0, image_size,
                                    h_dst, 0, nullptr, nullptr),
                "read dst");
-
   if (ephemeral) {
     clReleaseMemObject(src);
     clReleaseMemObject(dst);
@@ -565,8 +609,7 @@ TIFFImage TIFFImage::SetKernelSobelSepOpenCL(
   return result;
 }
 
-TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
-    const bool /*shared_memory*/) const {
+TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(const bool shared_memory) const {
   const_cast<TIFFImage*>(this)->EnsureOpenCLProgramBuilt();
   cl_int err;
   bool ephemeral = false;
@@ -593,50 +636,98 @@ TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src)");
   }
-
   size_t h = height_, w = width_;
-  size_t global[2] = {RoundUp(width_, kBlockSize),
-                      RoundUp(height_, kBlockSize)};
-  size_t local[2] = {kBlockSize, kBlockSize};
-
-  auto run2 = [&](const char* name, cl_mem a0, cl_mem a1, cl_mem a2) {
-    cl_int err2;
-    cl_kernel k = clCreateKernel(cl_program_, name, &err2);
-    CheckCLError(err2, "clCreateKernel");
+  size_t max_wg = 0;
+  CheckCLError(clGetDeviceInfo(cl_device_, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                               sizeof(max_wg), &max_wg, nullptr),
+               "clGetDeviceInfo(MAX_WORK_GROUP_SIZE)");
+  size_t linear =
+      std::min(kCudaLinearBlock, max_wg > 0 ? max_wg : kCudaLinearBlock);
+  size_t global[2] = {RoundUp(width_, linear), height_};
+  size_t local[2] = {linear, 1};
+  if (shared_memory) {
+    size_t global_2d[2] = {RoundUp(width_, kBlockSize),
+                           RoundUp(height_, kBlockSize)};
+    size_t local_2d[2] = {kBlockSize, kBlockSize};
+    cl_kernel k = clCreateKernel(cl_program_, "PrewittAverageLocal", &err);
+    CheckCLError(err, "clCreateKernel(PrewittAverageLocal)");
     int arg = 0;
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a0), "arg0");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a1), "arg1");
-    if (a2 != nullptr) {
-      CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &a2), "arg2");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &src), "src");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    size_t tile_bytes = (kBlockSize + 2) * (kBlockSize + 2) * sizeof(cl_ushort);
+    CheckCLError(clSetKernelArg(k, arg++, tile_bytes, nullptr), "local tile");
+    cl_event evt = nullptr;
+    CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global_2d,
+                                        local_2d, 0, nullptr, &evt),
+                 "enqueue PrewittAverageLocal");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("PrewittAverageLocal"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
     }
+    clReleaseEvent(evt);
+    clReleaseKernel(k);
+  } else {
+    cl_kernel k = clCreateKernel(cl_program_, "PrewittAverage", &err);
+    CheckCLError(err, "clCreateKernel(PrewittAverage)");
+    int arg = 0;
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &src), "src");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global, local,
                                         0, nullptr, &evt),
-                 "clEnqueueNDRangeKernel");
+                 "enqueue PrewittAverage");
     CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
     if (cl_profile_enabled_) {
-      TIFFImage::ClProfileRecord rec{std::string(name), EventDurationMs(evt)};
+      TIFFImage::ClProfileRecord rec{std::string("PrewittAverage"),
+                                     EventDurationMs(evt)};
       cl_profile_records_.push_back(rec);
     }
     clReleaseEvent(evt);
     clReleaseKernel(k);
-  };
-
-  // 1) Average
-  run2("PrewittAverage", src, gx, nullptr);
-  run2("PrewittAverageY", src, gy, nullptr);
+  }
   CheckCLError(clFinish(cl_queue_), "clFinish1");
-  // 2) Diff
-  {
+  if (shared_memory) {
+    size_t global_2d[2] = {RoundUp(width_, kBlockSize),
+                           RoundUp(height_, kBlockSize)};
+    size_t local_2d[2] = {kBlockSize, kBlockSize};
+    cl_kernel k = clCreateKernel(cl_program_, "SepKernelDiffLocal", &err);
+    CheckCLError(err, "clCreateKernel(SepKernelDiffLocal)");
+    int arg = 0;
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &dst), "dst");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
+    size_t lbytes = (kBlockSize + 2) * (kBlockSize + 2) * sizeof(cl_int);
+    CheckCLError(clSetKernelArg(k, arg++, lbytes, nullptr), "tilex");
+    CheckCLError(clSetKernelArg(k, arg++, lbytes, nullptr), "tiley");
+    cl_event evt = nullptr;
+    CheckCLError(clEnqueueNDRangeKernel(cl_queue_, k, 2, nullptr, global_2d,
+                                        local_2d, 0, nullptr, &evt),
+                 "enqueue diff local");
+    CheckCLError(clWaitForEvents(1, &evt), "clWaitForEvents");
+    if (cl_profile_enabled_) {
+      TIFFImage::ClProfileRecord rec{std::string("SepKernelDiffLocal"),
+                                     EventDurationMs(evt)};
+      cl_profile_records_.push_back(rec);
+    }
+    clReleaseEvent(evt);
+    clReleaseKernel(k);
+  } else {
     cl_kernel k = clCreateKernel(cl_program_, "SepKernelDiff", &err);
     CheckCLError(err, "clCreateKernel(SepKernelDiff)");
     int arg = 0;
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gx), "gx");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &gy), "gy");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &rx), "rx");
-    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &ry), "ry");
+    CheckCLError(clSetKernelArg(k, arg++, sizeof(cl_mem), &dst), "dst");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &h), "h");
     CheckCLError(clSetKernelArg(k, arg++, sizeof(size_t), &w), "w");
     cl_event evt = nullptr;
@@ -653,15 +744,10 @@ TIFFImage TIFFImage::SetKernelPrewittSepOpenCL(
     clReleaseKernel(k);
   }
   CheckCLError(clFinish(cl_queue_), "clFinish2");
-  // 3) AddAbs
-  run2("AddAbsMtx", rx, ry, dst);
-  CheckCLError(clFinish(cl_queue_), "clFinish3");
-
   uint16_t* h_dst = new uint16_t[width_ * height_];
   CheckCLError(clEnqueueReadBuffer(cl_queue_, dst, CL_TRUE, 0, image_size,
                                    h_dst, 0, nullptr, nullptr),
                "read dst");
-
   if (ephemeral) {
     clReleaseMemObject(src);
     clReleaseMemObject(dst);
@@ -693,7 +779,6 @@ TIFFImage TIFFImage::GaussianBlurOpenCL(const size_t size, const float sigma) {
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src)");
   }
-  // kernel
   Kernel<float> k2d = Kernel<float>::GetGaussianKernel(size, sigma);
   size_t kbytes = k2d.GetHeight() * k2d.GetWidth() * sizeof(float);
   cl_mem kbuf =
@@ -705,7 +790,6 @@ TIFFImage TIFFImage::GaussianBlurOpenCL(const size_t size, const float sigma) {
                                     h_kernel, 0, nullptr, nullptr),
                "write k");
   delete[] h_kernel;
-
   cl_kernel kern = clCreateKernel(cl_program_, "GaussianBlur", &err);
   CheckCLError(err, "clCreateKernel(GaussianBlur)");
   size_t h = height_, w = width_;
@@ -717,10 +801,14 @@ TIFFImage TIFFImage::GaussianBlurOpenCL(const size_t size, const float sigma) {
   CheckCLError(clSetKernelArg(kern, arg++, sizeof(size_t), &w), "w");
   CheckCLError(clSetKernelArg(kern, arg++, sizeof(cl_mem), &kbuf), "k");
   CheckCLError(clSetKernelArg(kern, arg++, sizeof(int), &ksize), "ksize");
-
-  size_t global[2] = {RoundUp(width_, kBlockSize),
-                      RoundUp(height_, kBlockSize)};
-  size_t local[2] = {kBlockSize, kBlockSize};
+  size_t max_wg = 0;
+  CheckCLError(clGetDeviceInfo(cl_device_, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                               sizeof(max_wg), &max_wg, nullptr),
+               "clGetDeviceInfo(MAX_WORK_GROUP_SIZE)");
+  size_t linear =
+      std::min(kCudaLinearBlock, max_wg > 0 ? max_wg : kCudaLinearBlock);
+  size_t global[2] = {RoundUp(width_, linear), height_};
+  size_t local[2] = {linear, 1};
   {
     cl_event evt = nullptr;
     CheckCLError(clEnqueueNDRangeKernel(cl_queue_, kern, 2, nullptr, global,
@@ -735,12 +823,10 @@ TIFFImage TIFFImage::GaussianBlurOpenCL(const size_t size, const float sigma) {
     clReleaseEvent(evt);
   }
   CheckCLError(clFinish(cl_queue_), "finish gaussian");
-
   uint16_t* h_dst = new uint16_t[width_ * height_];
   CheckCLError(clEnqueueReadBuffer(cl_queue_, dst, CL_TRUE, 0, image_size,
                                    h_dst, 0, nullptr, nullptr),
                "read dst");
-
   clReleaseMemObject(kbuf);
   clReleaseKernel(kern);
   if (ephemeral) {
@@ -774,16 +860,17 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size,
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src)");
   }
-
   EnsureGaussianKernelBuffer(size, sigma);
-
   size_t h = height_, w = width_;
   int ksize = static_cast<int>(size);
-  size_t global[2] = {RoundUp(width_, kBlockSize),
-                      RoundUp(height_, kBlockSize)};
-  size_t local[2] = {kBlockSize, kBlockSize};
-
-  // Horizontal
+  size_t max_wg = 0;
+  CheckCLError(clGetDeviceInfo(cl_device_, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                               sizeof(max_wg), &max_wg, nullptr),
+               "clGetDeviceInfo(MAX_WORK_GROUP_SIZE)");
+  size_t linear =
+      std::min(kCudaLinearBlock, max_wg > 0 ? max_wg : kCudaLinearBlock);
+  size_t global[2] = {RoundUp(width_, linear), height_};
+  size_t local[2] = {linear, 1};
   {
     cl_kernel kern =
         clCreateKernel(cl_program_, "GaussianBlurSepHorizontal", &err);
@@ -810,7 +897,6 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size,
     clReleaseKernel(kern);
   }
   CheckCLError(clFinish(cl_queue_), "finish horiz");
-  // Vertical
   {
     cl_kernel kern =
         clCreateKernel(cl_program_, "GaussianBlurSepVertical", &err);
@@ -837,12 +923,10 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size,
     clReleaseKernel(kern);
   }
   CheckCLError(clFinish(cl_queue_), "finish vert");
-
   uint16_t* h_dst = new uint16_t[width_ * height_];
   CheckCLError(clEnqueueReadBuffer(cl_queue_, dst, CL_TRUE, 0, image_size,
                                    h_dst, 0, nullptr, nullptr),
                "read dst");
-
   if (ephemeral) {
     clReleaseMemObject(src);
     clReleaseMemObject(dst);
