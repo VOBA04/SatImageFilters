@@ -4,9 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
-#include <cuda_runtime.h>
 
+#ifdef BUILD_WITH_CUDA
+#include <cuda_runtime.h>
 #include "check_cuda_errors.h"
+#endif
+
 #include "image_operation.h"
 #include "kernel.h"
 
@@ -14,12 +17,17 @@ CudaMemManager::CudaMemManager() {
 }
 
 CudaMemManager::~CudaMemManager() {
+#ifdef BUILD_WITH_CUDA
   if (is_allocated_) {
     FreeMemory();
   }
+#endif
 }
 
 void CudaMemManager::AllocateMemory() {
+#ifndef BUILD_WITH_CUDA
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (is_allocated_) {
     throw std::runtime_error("Memory already allocated.");
   }
@@ -87,9 +95,13 @@ void CudaMemManager::AllocateMemory() {
   if (gaussian_blur_required || gaussian_blur_sep_required) {
     InitializeGaussianKernel();
   }
+#endif
 }
 
 void CudaMemManager::FreeMemory() {
+#ifndef BUILD_WITH_CUDA
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
@@ -122,29 +134,44 @@ void CudaMemManager::FreeMemory() {
     d_gaussian_sep_temp_ = nullptr;
   }
   is_allocated_ = false;
+#endif
 }
 
 void CudaMemManager::ReallocateMemory() {
+#ifndef BUILD_WITH_CUDA
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (is_allocated_) {
     FreeMemory();
   }
   AllocateMemory();
+#endif
 }
 
 void CudaMemManager::CopyImageToDevice(const uint16_t* src) {
+#ifndef BUILD_WITH_CUDA
+  (void)src;  // suppress unused in non-CUDA builds
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
   checkCudaErrors(cudaMemcpy(d_src_, src, image_size_ * sizeof(uint16_t),
                              cudaMemcpyHostToDevice));
+#endif
 }
 
 void CudaMemManager::CopyImageFromDevice(uint16_t* dst) {
+#ifndef BUILD_WITH_CUDA
+  (void)dst;  // suppress unused in non-CUDA builds
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
   checkCudaErrors(cudaMemcpy(dst, d_dst_, image_size_ * sizeof(uint16_t),
                              cudaMemcpyDeviceToHost));
+#endif
 }
 
 void CudaMemManager::SetImageSize(size_t width, size_t height) {
@@ -175,6 +202,7 @@ void CudaMemManager::InitializeGaussianKernel() {
   if (gaussian_kernel_size_ == 0 || gaussian_sigma_ < 0.0f) {
     throw std::runtime_error("Gaussian parameters are not set.");
   }
+#ifdef BUILD_WITH_CUDA
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
@@ -204,9 +232,11 @@ void CudaMemManager::InitializeGaussianKernel() {
                                cudaMemcpyHostToDevice));
     delete[] gaussian_kernel;
   }
+#endif
 }
 
 void CudaMemManager::ReallocateGaussianKernel() {
+#ifdef BUILD_WITH_CUDA
   checkCudaErrors(cudaFree(d_gaussian_kernel_));
   if (std::find(image_operations_.begin(), image_operations_.end(),
                 ImageOperation::GaussianBlur) != image_operations_.end()) {
@@ -219,9 +249,17 @@ void CudaMemManager::ReallocateGaussianKernel() {
     checkCudaErrors(
         cudaMalloc(&d_gaussian_kernel_, gaussian_kernel_size_ * sizeof(float)));
   }
+#else
+  throw std::runtime_error("CUDA support disabled at build time.");
+#endif
 }
 
 void CudaMemManager::CheckGaussianKernel(size_t kernel_size, float sigma) {
+#ifndef BUILD_WITH_CUDA
+  (void)kernel_size;
+  (void)sigma;  // suppress unused in non-CUDA builds
+  throw std::runtime_error("CUDA support disabled at build time.");
+#else
   if (!is_allocated_) {
     throw std::runtime_error("Memory is not allocated.");
   }
@@ -234,6 +272,7 @@ void CudaMemManager::CheckGaussianKernel(size_t kernel_size, float sigma) {
     ReallocateGaussianKernel();
     InitializeGaussianKernel();
   }
+#endif
 }
 
 void CudaMemManager::SetImageOperations(const ImageOperation operations) {
@@ -248,10 +287,15 @@ void CudaMemManager::SetImageOperations(const ImageOperation operations) {
 }
 
 bool CudaMemManager::CheckFreeMemory(size_t required_memory) const {
+#ifndef BUILD_WITH_CUDA
+  (void)required_memory;
+  return false;
+#else
   size_t free_memory, total_memory;
   cudaFree(nullptr);
   checkCudaErrors(cudaMemGetInfo(&free_memory, &total_memory));
   return free_memory > required_memory;
+#endif
 }
 
 uint16_t* CudaMemManager::GetDeviceSrc() const {
