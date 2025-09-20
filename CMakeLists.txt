@@ -15,6 +15,7 @@ list(APPEND CMAKE_PREFIX_PATH
     ${EXTERNAL_BUILD_DIR}/gtest_install
     ${EXTERNAL_BUILD_DIR}/libtiff_install 
     ${EXTERNAL_BUILD_DIR}/opencv_install
+    ${EXTERNAL_BUILD_DIR}/opencl_install
 )
 
 find_package(GTest QUIET)
@@ -23,8 +24,13 @@ if(GTest_FOUND)
 else()
     message(STATUS "Google Test не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/googletest -B ${EXTERNAL_BUILD_DIR}/gtest_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/googletest
+                -B ${EXTERNAL_BUILD_DIR}/gtest_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/gtest_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_GMOCK=OFF
                 -DINSTALL_GTEST=ON
         RESULT_VARIABLE GTEST_CONFIGURE_RESULT
@@ -48,8 +54,13 @@ if(TIFF_FOUND)
 else()
     message(STATUS "libtiff не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/libtiff -B ${EXTERNAL_BUILD_DIR}/libtiff_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/libtiff
+                -B ${EXTERNAL_BUILD_DIR}/libtiff_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/libtiff_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_SHARED_LIBS=ON
         RESULT_VARIABLE LIBTIFF_CONFIGURE_RESULT
     )
@@ -72,8 +83,13 @@ if(OpenCV_FOUND)
 else()
     message(STATUS "OpenCV не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencv -B ${EXTERNAL_BUILD_DIR}/opencv_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/opencv
+                -B ${EXTERNAL_BUILD_DIR}/opencv_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencv_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DWITH_CUDA=OFF
                 -DBUILD_opencv_core=ON
                 -DBUILD_opencv_imgproc=ON
@@ -108,9 +124,16 @@ if(OpenCL_FOUND)
 else()
     message(STATUS "OpenCL не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader -B ${EXTERNAL_BUILD_DIR}/opencl_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader
+                -B ${EXTERNAL_BUILD_DIR}/opencl_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_SHARED_LIBS=ON
+                -DCMAKE_PREFIX_PATH=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DOpenCLHeaders_DIR=${EXTERNAL_BUILD_DIR}/opencl_install/lib/cmake/OpenCLHeaders
         RESULT_VARIABLE OPENCL_CONFIGURE_RESULT
     )
     if(NOT OPENCL_CONFIGURE_RESULT EQUAL 0)
@@ -338,6 +361,17 @@ foreach(target ${_all_targets})
                         "${dll}"
                         $<TARGET_FILE_DIR:${target}>
                     COMMENT "Копирование TIFF DLL (${dll}) для ${target}"
+                )
+            endforeach()
+        endif()
+        if(EXISTS "${EXTERNAL_BUILD_DIR}/opencl_install/bin")
+            file(GLOB OPENCL_DLLS "${EXTERNAL_BUILD_DIR}/opencl_install/bin/*OpenCL*.dll")
+            foreach(dll ${OPENCL_DLLS})
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${dll}"
+                        $<TARGET_FILE_DIR:${target}>
+                    COMMENT "Копирование OpenCL DLL (${dll}) для ${target}"
                 )
             endforeach()
         endif()
