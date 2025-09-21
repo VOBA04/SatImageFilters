@@ -123,6 +123,7 @@ if(OpenCL_FOUND)
     message(STATUS "Найден OpenCL: ${OpenCL_LIBRARIES}")
 else()
     message(STATUS "OpenCL не найден, выполняем сборку")
+    set(OPENCL_HEADERS_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
     execute_process(
         COMMAND ${CMAKE_COMMAND}
                 -G "${CMAKE_GENERATOR}"
@@ -146,7 +147,8 @@ else()
     if(NOT OPENCL_BUILD_RESULT EQUAL 0)
         message(FATAL_ERROR "Не удалось собрать или установить OpenCL")
     endif()
-    set (OpenCL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
+        set(OpenCL_INCLUDE_DIR "${OPENCL_HEADERS_DIR}")
+    set(OpenCL_LIBRARY "${EXTERNAL_BUILD_DIR}/opencl_install/lib/libOpenCL.so")
     find_package(OpenCL REQUIRED)
 endif()
 
