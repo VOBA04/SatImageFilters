@@ -858,6 +858,7 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size, const float sigma,
   size_t image_size = width_ * height_ * sizeof(uint16_t);
   size_t temp_size = width_ * height_ * sizeof(float);
   cl_mem src = cl_src_, dst = cl_dst_, temp = cl_gaussian_sep_temp_;
+  bool temp_ephemeral = false;
   if (!cl_allocated_) {
     ephemeral = true;
     src = clCreateBuffer(cl_context_, CL_MEM_READ_WRITE, image_size, nullptr,
@@ -870,6 +871,14 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size, const float sigma,
     CheckCLError(clEnqueueWriteBuffer(cl_queue_, src, CL_TRUE, 0, image_size,
                                       image_, 0, nullptr, nullptr),
                  "clEnqueueWriteBuffer(src)");
+  } else {
+    // Pre-allocated mode: ensure temporary buffer exists for separable path
+    if (temp == nullptr) {
+      temp = clCreateBuffer(cl_context_, CL_MEM_READ_WRITE, temp_size, nullptr,
+                            &err);
+      CheckCLError(err, "clCreateBuffer(temp ephemeral)");
+      temp_ephemeral = true;
+    }
   }
   EnsureGaussianKernelBuffer(size, sigma);
   size_t h = height_, w = width_;
@@ -977,6 +986,8 @@ TIFFImage TIFFImage::GaussianBlurSepOpenCL(const size_t size, const float sigma,
   if (ephemeral) {
     clReleaseMemObject(src);
     clReleaseMemObject(dst);
+    clReleaseMemObject(temp);
+  } else if (temp_ephemeral) {
     clReleaseMemObject(temp);
   }
   TIFFImage result(*this);
