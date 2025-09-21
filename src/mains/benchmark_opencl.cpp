@@ -166,10 +166,10 @@ int main(int argc, char* argv[]) {
           (void)image.SetKernelPrewittSepOpenCL(use_local);
           break;
         case Functions::Gauss:
-          (void)image.GaussianBlurOpenCL(gauss_size, sigma);
+          (void)image.GaussianBlurOpenCL(gauss_size, sigma, use_local);
           break;
         case Functions::GaussSep:
-          (void)image.GaussianBlurSepOpenCL(gauss_size, sigma);
+          (void)image.GaussianBlurSepOpenCL(gauss_size, sigma, use_local);
           break;
       }
     }

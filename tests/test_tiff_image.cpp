@@ -243,8 +243,10 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
     TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
-    TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
-    TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
+    TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0, false);
+    TIFFImage blurred_cuda_shared = img.GaussianBlurCuda(3, 1.0, true);
+    TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0, false);
+    TIFFImage blurred_cuda_sep_shared = img.GaussianBlurSepCuda(3, 1.0, true);
     TIFFImage blurred_cuda_2 = img.GaussianBlurCuda(3, 2.0);
     img.SetImagePatametersForDevice(ImageOperation::GaussianBlur, 3, 1.0);
     img.AllocateDeviceMemory();
@@ -258,6 +260,13 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
     for (size_t i = 0; i < img.GetHeight() && !failed; i++) {
       for (size_t j = 0; j < img.GetWidth(); j++) {
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ")"
             << " image " << k;
         if (HasFailure()) {
@@ -279,6 +288,13 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
           break;
         }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_sep_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_sep_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ")"
             << " image " << k;
         if (HasFailure()) {

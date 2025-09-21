@@ -161,10 +161,10 @@ int main(int argc, char* argv[]) {
           image.SetKernelPrewittSepCuda(use_shared_memory);
           break;
         case Functions::Gauss:
-          image.GaussianBlurCuda(gauss_size, sigma);
+          image.GaussianBlurCuda(gauss_size, sigma, use_shared_memory);
           break;
         case Functions::GaussSep:
-          image.GaussianBlurSepCuda(gauss_size, sigma);
+          image.GaussianBlurSepCuda(gauss_size, sigma, use_shared_memory);
           break;
       }
     }

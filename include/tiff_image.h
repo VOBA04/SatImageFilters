@@ -472,9 +472,11 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным фильтром Гаусса.
    */
-  TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0);
+  TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0,
+                             const bool shared_memory = false);
 
-  TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0);
+  TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0,
+                               const bool shared_memory = false);
 
   /**
    * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
@@ -490,10 +492,12 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным разделенным фильтром Гаусса.
    */
-  TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
+  TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0,
+                                const bool shared_memory = false);
 
   TIFFImage GaussianBlurSepOpenCL(const size_t size = 3,
-                                  const float sigma = 0.0);
+                                  const float sigma = 0.0,
+                                  const bool shared_memory = false);
 
 #ifdef USE_QT
   /**

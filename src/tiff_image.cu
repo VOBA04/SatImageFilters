@@ -616,6 +616,53 @@ __global__ void CudaGaussianBlur(uint16_t* src, uint16_t* dst, size_t height,
   }
 }
 
+__global__ void CudaGaussianBlurShared(uint16_t* src, uint16_t* dst,
+                                       size_t height, size_t width,
+                                       float* kernel, size_t ksize) {
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  const int radius = static_cast<int>(ksize) / 2;
+  const int tile_w = kBlockSize + 2 * radius;
+  extern __shared__ uint16_t s_tile[];
+
+  int li = Clamp(i - radius, 0, static_cast<int>(height) - 1);
+  int lj = Clamp(j - radius, 0, static_cast<int>(width) - 1);
+  int lx = threadIdx.x;
+  int ly = threadIdx.y;
+  s_tile[ly * tile_w + lx] = src[static_cast<size_t>(li) * width + lj];
+  if (ly < 2 * radius) {
+    int gy = min(i - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(height) - 1);
+    s_tile[(ly + kBlockSize) * tile_w + lx] =
+        src[static_cast<size_t>(gy) * width + lj];
+  }
+  if (lx < 2 * radius) {
+    int gx = min(j - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(width) - 1);
+    s_tile[ly * tile_w + (lx + kBlockSize)] =
+        src[static_cast<size_t>(li) * width + gx];
+  }
+  if (ly >= static_cast<int>(kBlockSize) - 2 * radius &&
+      lx >= static_cast<int>(kBlockSize) - 2 * radius) {
+    int gy = min(i + radius, static_cast<int>(height) - 1);
+    int gx = min(j + radius, static_cast<int>(width) - 1);
+    s_tile[(ly + 2 * radius) * tile_w + (lx + 2 * radius)] =
+        src[static_cast<size_t>(gy) * width + gx];
+  }
+  __syncthreads();
+  if (i < height && j < width) {
+    float sum = 0.0f;
+    int k_int = static_cast<int>(ksize);
+    for (int r = 0; r < k_int; ++r) {
+      for (int c = 0; c < k_int; ++c) {
+        int val = s_tile[(threadIdx.y + r) * tile_w + (threadIdx.x + c)];
+        sum += static_cast<float>(val) * kernel[r * k_int + c];
+      }
+    }
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(lrintf(sum), 0, 65535));
+  }
+}
+
 /**
  * @brief Применяет горизонтальное размытие по Гауссу к входному изображению.
  *
@@ -668,6 +715,96 @@ __global__ void CudaGaussianBlurSepVertical(float* src, uint16_t* dst,
       sum += src[y * width + j] * kernel[k];
     }
     dst[i * width + j] = static_cast<uint16_t>(Clamp(round(sum), 0, 65535));
+  }
+}
+
+__global__ void CudaGaussianBlurSepHorizontalShared(uint16_t* src, float* dst,
+                                                    size_t height, size_t width,
+                                                    float* kernel,
+                                                    size_t ksize) {
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  const int radius = static_cast<int>(ksize) / 2;
+  const int tile_w = kBlockSize + 2 * radius;
+  extern __shared__ uint16_t s_tile_u16[];
+  int li = Clamp(i - radius, 0, static_cast<int>(height) - 1);
+  int lj = Clamp(j - radius, 0, static_cast<int>(width) - 1);
+  int lx = threadIdx.x;
+  int ly = threadIdx.y;
+  s_tile_u16[ly * tile_w + lx] = src[static_cast<size_t>(li) * width + lj];
+  if (ly < 2 * radius) {
+    int gy = min(i - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(height) - 1);
+    s_tile_u16[(ly + kBlockSize) * tile_w + lx] =
+        src[static_cast<size_t>(gy) * width + lj];
+  }
+  if (lx < 2 * radius) {
+    int gx = min(j - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(width) - 1);
+    s_tile_u16[ly * tile_w + (lx + kBlockSize)] =
+        src[static_cast<size_t>(li) * width + gx];
+  }
+  if (ly >= static_cast<int>(kBlockSize) - 2 * radius &&
+      lx >= static_cast<int>(kBlockSize) - 2 * radius) {
+    int gy = min(i + radius, static_cast<int>(height) - 1);
+    int gx = min(j + radius, static_cast<int>(width) - 1);
+    s_tile_u16[(ly + 2 * radius) * tile_w + (lx + 2 * radius)] =
+        src[static_cast<size_t>(gy) * width + gx];
+  }
+  __syncthreads();
+  if (i < height && j < width) {
+    float sum = 0.0f;
+    int k_int = static_cast<int>(ksize);
+    for (int c = 0; c < k_int; ++c) {
+      int val = s_tile_u16[(threadIdx.y + radius) * tile_w + (threadIdx.x + c)];
+      sum += static_cast<float>(val) * kernel[c];
+    }
+    dst[i * width + j] = sum;
+  }
+}
+
+__global__ void CudaGaussianBlurSepVerticalShared(float* src, uint16_t* dst,
+                                                  size_t height, size_t width,
+                                                  float* kernel, size_t ksize) {
+  int i = blockIdx.y * blockDim.y + threadIdx.y;
+  int j = blockIdx.x * blockDim.x + threadIdx.x;
+  const int radius = static_cast<int>(ksize) / 2;
+  const int tile_w = kBlockSize + 2 * radius;
+  extern __shared__ float s_tile_f32[];
+  int li = Clamp(i - radius, 0, static_cast<int>(height) - 1);
+  int lj = Clamp(j - radius, 0, static_cast<int>(width) - 1);
+  int lx = threadIdx.x;
+  int ly = threadIdx.y;
+  s_tile_f32[ly * tile_w + lx] = src[static_cast<size_t>(li) * width + lj];
+  if (ly < 2 * radius) {
+    int gy = min(i - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(height) - 1);
+    s_tile_f32[(ly + kBlockSize) * tile_w + lx] =
+        src[static_cast<size_t>(gy) * width + lj];
+  }
+  if (lx < 2 * radius) {
+    int gx = min(j - radius + static_cast<int>(kBlockSize),
+                 static_cast<int>(width) - 1);
+    s_tile_f32[ly * tile_w + (lx + kBlockSize)] =
+        src[static_cast<size_t>(li) * width + gx];
+  }
+  if (ly >= static_cast<int>(kBlockSize) - 2 * radius &&
+      lx >= static_cast<int>(kBlockSize) - 2 * radius) {
+    int gy = min(i + radius, static_cast<int>(height) - 1);
+    int gx = min(j + radius, static_cast<int>(width) - 1);
+    s_tile_f32[(ly + 2 * radius) * tile_w + (lx + 2 * radius)] =
+        src[static_cast<size_t>(gy) * width + gx];
+  }
+  __syncthreads();
+  if (i < height && j < width) {
+    float sum = 0.0f;
+    int k_int = static_cast<int>(ksize);
+    for (int r = 0; r < k_int; ++r) {
+      float val =
+          s_tile_f32[(threadIdx.y + r) * tile_w + (threadIdx.x + radius)];
+      sum += val * kernel[r];
+    }
+    dst[i * width + j] = static_cast<uint16_t>(Clamp(lrintf(sum), 0, 65535));
   }
 }
 
@@ -923,7 +1060,8 @@ TIFFImage TIFFImage::SetKernelPrewittSepCuda(const bool shared_memory) const {
   return result;
 }
 
-TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma) {
+TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma,
+                                      const bool shared_memory) {
   uint16_t* h_src = image_;
   uint16_t* d_src;
   uint16_t* h_dst = new uint16_t[width_ * height_];
@@ -958,12 +1096,22 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma) {
     cuda_mem_manager_.CheckGaussianKernel(size, sigma);
     d_kernel = cuda_mem_manager_.GetDeviceGaussianKernel();
   }
-  // dim3 threads(32, 32);  // 2D-блоки по 32x32
-  // dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
-  dim3 threads(1024);
-  dim3 blocks((width_ + 1023) / 1024, height_);
-  CudaGaussianBlur<<<blocks, threads>>>(d_src, d_dst, height_, width_, d_kernel,
-                                        size);
+  if (shared_memory) {
+    dim3 threads(kBlockSize, kBlockSize);
+    dim3 blocks((width_ + kBlockSize - 1) / kBlockSize,
+                (height_ + kBlockSize - 1) / kBlockSize);
+    const int radius = static_cast<int>(size) / 2;
+    const size_t sh_w = kBlockSize + 2 * radius;
+    const size_t sh_h = kBlockSize + 2 * radius;
+    const size_t shared_bytes = sh_w * sh_h * sizeof(uint16_t);
+    CudaGaussianBlurShared<<<blocks, threads, shared_bytes>>>(
+        d_src, d_dst, height_, width_, d_kernel, size);
+  } else {
+    dim3 threads(1024);
+    dim3 blocks((width_ + 1023) / 1024, height_);
+    CudaGaussianBlur<<<blocks, threads>>>(d_src, d_dst, height_, width_,
+                                          d_kernel, size);
+  }
   // checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {
@@ -977,7 +1125,8 @@ TIFFImage TIFFImage::GaussianBlurCuda(const size_t size, const float sigma) {
   return result;
 }
 
-TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size, const float sigma) {
+TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size, const float sigma,
+                                         const bool shared_memory) {
   uint16_t* h_src = image_;
   uint16_t* d_src;
   float* d_temp;
@@ -1016,15 +1165,27 @@ TIFFImage TIFFImage::GaussianBlurSepCuda(const size_t size, const float sigma) {
     cuda_mem_manager_.CheckGaussianKernel(size, sigma);
     d_kernel = cuda_mem_manager_.GetDeviceGaussianKernel();
   }
-  // dim3 threads(32, 32);  // 2D-блоки по 32x32
-  // dim3 blocks((width_ + 31) / 32, (height_ + 31) / 32);
-  dim3 threads(1024);
-  dim3 blocks((width_ + 1023) / 1024, height_);
-  CudaGaussianBlurSepHorizontal<<<blocks, threads>>>(d_src, d_temp, height_,
+  if (shared_memory) {
+    dim3 threads(kBlockSize, kBlockSize);
+    dim3 blocks((width_ + kBlockSize - 1) / kBlockSize,
+                (height_ + kBlockSize - 1) / kBlockSize);
+    const int radius = static_cast<int>(size) / 2;
+    const size_t sh_w = kBlockSize + 2 * radius;
+    const size_t sh_h = kBlockSize + 2 * radius;
+    size_t shared_bytes_h = sh_w * sh_h * sizeof(uint16_t);
+    size_t shared_bytes_v = sh_w * sh_h * sizeof(float);
+    CudaGaussianBlurSepHorizontalShared<<<blocks, threads, shared_bytes_h>>>(
+        d_src, d_temp, height_, width_, d_kernel, size);
+    CudaGaussianBlurSepVerticalShared<<<blocks, threads, shared_bytes_v>>>(
+        d_temp, d_dst, height_, width_, d_kernel, size);
+  } else {
+    dim3 threads(1024);
+    dim3 blocks((width_ + 1023) / 1024, height_);
+    CudaGaussianBlurSepHorizontal<<<blocks, threads>>>(d_src, d_temp, height_,
+                                                       width_, d_kernel, size);
+    CudaGaussianBlurSepVertical<<<blocks, threads>>>(d_temp, d_dst, height_,
                                                      width_, d_kernel, size);
-  // checkCudaErrors(cudaDeviceSynchronize());
-  CudaGaussianBlurSepVertical<<<blocks, threads>>>(d_temp, d_dst, height_,
-                                                   width_, d_kernel, size);
+  }
   // checkCudaErrors(cudaDeviceSynchronize());
   checkCudaErrors(cudaMemcpy(h_dst, d_dst, image_size, cudaMemcpyDeviceToHost));
   if (!cuda_mem_manager_.IsAllocated()) {

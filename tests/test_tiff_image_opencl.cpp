@@ -145,8 +145,10 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
     TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
-    TIFFImage blurred_ocl = img.GaussianBlurOpenCL(3, 1.0);
-    TIFFImage blurred_ocl_sep = img.GaussianBlurSepOpenCL(3, 1.0);
+    TIFFImage blurred_ocl = img.GaussianBlurOpenCL(3, 1.0, false);
+    TIFFImage blurred_ocl_shared = img.GaussianBlurOpenCL(3, 1.0, true);
+    TIFFImage blurred_ocl_sep = img.GaussianBlurSepOpenCL(3, 1.0, false);
+    TIFFImage blurred_ocl_sep_shared = img.GaussianBlurSepOpenCL(3, 1.0, true);
     TIFFImage blurred_ocl_2 = img.GaussianBlurOpenCL(3, 2.0);
 
     // Pre-allocated path
@@ -175,6 +177,12 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
           failed = true;
           break;
         }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_shared.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_mem.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
         if (HasFailure()) {
@@ -182,6 +190,12 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
           break;
         }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_sep_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_sep_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
         if (HasFailure()) {
           failed = true;

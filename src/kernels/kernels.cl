@@ -199,16 +199,16 @@ kernel void ApplyKernelLocal(global ushort* src, global ushort* dst, ulong h,
   int lj = clampi(gx - R, 0, (int)w - 1);
   tile[ly * tileW + lx] = src[(ulong)li * w + (ulong)lj];
   if (ly < 2 * R) {
-    int gy2 = clampi(gy - R + ldy + ly, 0, (int)h - 1);
+    int gy2 = clampi(gy + ldy - R, 0, (int)h - 1);
     tile[(ly + ldy) * tileW + lx] = src[(ulong)gy2 * w + (ulong)lj];
   }
   if (lx < 2 * R) {
-    int gx2 = clampi(gx - R + ldx + lx, 0, (int)w - 1);
+    int gx2 = clampi(gx + ldx - R, 0, (int)w - 1);
     tile[ly * tileW + (lx + ldx)] = src[(ulong)li * w + (ulong)gx2];
   }
   if (ly < 2 * R && lx < 2 * R) {
-    int gy2 = clampi(gy - R + ldy + ly, 0, (int)h - 1);
-    int gx2 = clampi(gx - R + ldx + lx, 0, (int)w - 1);
+    int gy2 = clampi(gy + ldy - R, 0, (int)h - 1);
+    int gx2 = clampi(gx + ldx - R, 0, (int)w - 1);
     tile[(ly + ldy) * tileW + (lx + ldx)] = src[(ulong)gy2 * w + (ulong)gx2];
   }
   barrier(CLK_LOCAL_MEM_FENCE);
@@ -485,6 +485,49 @@ kernel void GaussianBlur(global ushort* src, global ushort* dst, ulong h,
       (ushort)(iv < 0 ? 0 : (iv > 65535 ? 65535 : iv));
 }
 
+// Local-memory variant for arbitrary odd ksize
+kernel void GaussianBlurLocal(global ushort* src, global ushort* dst, ulong h,
+                              ulong w, global float* k, int ksize,
+                              local ushort* tile) {
+  const int gx = get_global_id(0);
+  const int gy = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = ksize / 2;
+  const int tileW = ldx + 2 * R;
+  int li = clampi(gy - R, 0, (int)h - 1);
+  int lj = clampi(gx - R, 0, (int)w - 1);
+  tile[ly * tileW + lx] = src[(ulong)li * w + (ulong)lj];
+  if (ly < 2 * R) {
+    int gy2 = clampi(gy - R + ldy + ly, 0, (int)h - 1);
+    tile[(ly + ldy) * tileW + lx] = src[(ulong)gy2 * w + (ulong)lj];
+  }
+  if (lx < 2 * R) {
+    int gx2 = clampi(gx - R + ldx + lx, 0, (int)w - 1);
+    tile[ly * tileW + (lx + ldx)] = src[(ulong)li * w + (ulong)gx2];
+  }
+  if (ly < 2 * R && lx < 2 * R) {
+    int gy2 = clampi(gy - R + ldy + ly, 0, (int)h - 1);
+    int gx2 = clampi(gx - R + ldx + lx, 0, (int)w - 1);
+    tile[(ly + ldy) * tileW + (lx + ldx)] = src[(ulong)gy2 * w + (ulong)gx2];
+  }
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)gy >= h || (ulong)gx >= w)
+    return;
+  float sum = 0.0f;
+  for (int r = 0; r < ksize; ++r) {
+    for (int c = 0; c < ksize; ++c) {
+      int v = (int)tile[(ly + r) * tileW + (lx + c)];
+      sum += (float)v * k[r * ksize + c];
+    }
+  }
+  int iv = (int)floor(sum + 0.5f);
+  dst[(ulong)gy * w + (ulong)gx] =
+      (ushort)(iv < 0 ? 0 : (iv > 65535 ? 65535 : iv));
+}
+
 kernel void GaussianBlurSepHorizontal(global ushort* src, global float* tmp,
                                       ulong h, ulong w, global float* k,
                                       int ksize) {
@@ -513,6 +556,88 @@ kernel void GaussianBlurSepVertical(global float* tmp, global ushort* dst,
     int y = i + ky - ksize / 2;
     y = clampi(y, 0, (int)h - 1);
     sum += tmp[(ulong)y * w + (ulong)j] * k[ky];
+  }
+  int iv = (int)floor(sum + 0.5f);
+  dst[(ulong)i * w + (ulong)j] =
+      (ushort)(iv < 0 ? 0 : (iv > 65535 ? 65535 : iv));
+}
+
+// Local-memory variants for separable Gaussian
+kernel void GaussianBlurSepHorizontalLocal(global ushort* src,
+                                           global float* tmp, ulong h, ulong w,
+                                           global float* k, int ksize,
+                                           local ushort* tile) {
+  const int j = get_global_id(0);
+  const int i = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = ksize / 2;
+  const int tileW = ldx + 2 * R;
+  int li = clampi(i - R, 0, (int)h - 1);
+  int lj = clampi(j - R, 0, (int)w - 1);
+  tile[ly * tileW + lx] = src[(ulong)li * w + (ulong)lj];
+  if (ly < 2 * R) {
+    int i2 = clampi(i - R + ldy, 0, (int)h - 1);
+    tile[(ly + ldy) * tileW + lx] = src[(ulong)i2 * w + (ulong)lj];
+  }
+  if (lx < 2 * R) {
+    int j2 = clampi(j - R + ldx, 0, (int)w - 1);
+    tile[ly * tileW + (lx + ldx)] = src[(ulong)li * w + (ulong)j2];
+  }
+  if (ly >= ldy - 2 * R && lx >= ldx - 2 * R) {
+    int i2 = clampi(i + R, 0, (int)h - 1);
+    int j2 = clampi(j + R, 0, (int)w - 1);
+    tile[(ly + 2 * R) * tileW + (lx + 2 * R)] = src[(ulong)i2 * w + (ulong)j2];
+  }
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)i >= h || (ulong)j >= w)
+    return;
+  const int cy = ly + R;
+  float sum = 0.0f;
+  for (int c = 0; c < ksize; ++c) {
+    int v = (int)tile[cy * tileW + (lx + c)];
+    sum += (float)v * k[c];
+  }
+  tmp[(ulong)i * w + (ulong)j] = sum;
+}
+
+kernel void GaussianBlurSepVerticalLocal(global float* tmp, global ushort* dst,
+                                         ulong h, ulong w, global float* k,
+                                         int ksize, local float* tile) {
+  const int j = get_global_id(0);
+  const int i = get_global_id(1);
+  const int lx = get_local_id(0);
+  const int ly = get_local_id(1);
+  const int ldx = get_local_size(0);
+  const int ldy = get_local_size(1);
+  const int R = ksize / 2;
+  const int tileW = ldx + 2 * R;
+  int li = clampi(i - R, 0, (int)h - 1);
+  int lj = clampi(j - R, 0, (int)w - 1);
+  tile[ly * tileW + lx] = tmp[(ulong)li * w + (ulong)lj];
+  if (ly < 2 * R) {
+    int i2 = clampi(i - R + ldy, 0, (int)h - 1);
+    tile[(ly + ldy) * tileW + lx] = tmp[(ulong)i2 * w + (ulong)lj];
+  }
+  if (lx < 2 * R) {
+    int j2 = clampi(j - R + ldx, 0, (int)w - 1);
+    tile[ly * tileW + (lx + ldx)] = tmp[(ulong)li * w + (ulong)j2];
+  }
+  if (ly >= ldy - 2 * R && lx >= ldx - 2 * R) {
+    int i2 = clampi(i + R, 0, (int)h - 1);
+    int j2 = clampi(j + R, 0, (int)w - 1);
+    tile[(ly + 2 * R) * tileW + (lx + 2 * R)] = tmp[(ulong)i2 * w + (ulong)j2];
+  }
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((ulong)i >= h || (ulong)j >= w)
+    return;
+  const int cx = lx + R;
+  float sum = 0.0f;
+  for (int r = 0; r < ksize; ++r) {
+    float v = tile[(ly + r) * tileW + cx];
+    sum += v * k[r];
   }
   int iv = (int)floor(sum + 0.5f);
   dst[(ulong)i * w + (ulong)j] =
