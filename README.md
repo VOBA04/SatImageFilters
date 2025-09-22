@@ -9,7 +9,7 @@
 
 - Чтение/запись TIFF через libtiff (`TIFFImage`).
 - Класс ядер свёртки и генерация гауссова ядра (`Kernel`).
-- Фильтры: Собель, Прюитт, Гаусс (обычный и разделённый).
+- Фильтры: Собель, Превитт, Гаусс (обычный и разделённый).
 - Исполнения: CPU, CUDA (при `BUILD_WITH_CUDA=ON`), OpenCL.
 - Профилирование OpenCL (сбор метрик выполнения ядер).
 - Тесты на GoogleTest, бенчмарки CPU/CUDA/OpenCL.
@@ -88,6 +88,69 @@ cmake --build build -j
 - CLI‑примеры и бенчмарки принимают параметры командной строки (парсер `CommandLineParser`).
 - GUI показывает базовый pipeline: загрузка изображения, выбор операции, параметры гауссова размытия, сохранение результата, а также работу с видеопотоком (через OpenCV).
 
+## Скрипты профилирования (Python)
+
+В папке `profilers/` находятся скрипты для автоматизации профилирования CPU/CUDA/OpenCL-бенчмарков и выгрузки результатов в Excel (`.xlsx`).
+
+- Требования:
+  - Python 3.8+ (рекомендовано 3.10+)
+  - Пакеты: `pandas`, `openpyxl`
+  - Для CUDA Nsight Compute: установлен `ncu` (входит в CUDA Toolkit)
+  - Для nvprof (устаревший): установлен `nvprof`
+
+Установка зависимостей:
+
+```bash
+python3 -m pip install -U pandas openpyxl
+```
+
+Общие флаги для скриптов:
+
+- `--gauss-only` — опционально; профилируются только фильтры Гаусса (`Gauss`, `GaussSep`). Без этого флага запускаются операторы Собеля/Превитта (и их разделённые варианты: `SobelSep`, `PrewittSep`).
+- `-m`/`--shared_memory` — опционально; тест операций с разделяемой (CUDA) / локальной (OpenCL) памятью. Ограничение: для OpenCL актуально для ядра 3×3.
+- `--save-mode {single|iterative}` — режим сохранения результатов (по умолчанию `single`).
+  - `single`: сохранить один Excel‑файл в конце выполнения. Для CPU — на лист `results`; для OpenCL/CUDA‑NCU — на отдельные вкладки по конфигурациям.
+  - `iterative`: сохранять/добавлять результаты по мере выполнения, создавая/дополняя вкладку для каждой конфигурации. Удобно, если запуск долгий или может быть прерван.
+  - Примечание: `profile_cuda_nvprof.py` не поддерживает `--save-mode` и всегда пишет один файл с вкладками по конфигурациям, дополнительно строя графики.
+
+Скрипты и примеры запуска:
+
+- CPU: `profilers/profile_cpu.py`
+  - Запускает `benchmark_cpu`, парсит суммарное и среднее время, пишет `cpu_profiling_results_*.xlsx`.
+  
+  ```bash
+  python3 profilers/profile_cpu.py build/benchmark_cpu dump/ \
+    --gauss-only --gauss-size 3 --gauss-sigma 1.0 --save-mode single
+  ```
+
+- OpenCL: `profilers/profile_opencl.py`
+  - Запускает `benchmark_opencl`, собирает метрики из консольного профайлера (по маркерам OPENCL_PROFILE_*), сохраняет `opencl_profiling_results_*.xlsx`.
+  - Флаг `-m/--shared_memory` включает локальную память (только 3x3).
+  
+  ```bash
+  python3 profilers/profile_opencl.py build/benchmark_opencl dump/ \
+    -m --gauss-only --gauss-size 3 --gauss-sigma 1.0 --save-mode single
+  ```
+
+- CUDA (Nsight Compute): `profilers/profile_cuda_ncu.py`
+  - Использует `ncu --csv` и метрику `gpu__time_duration.sum`, сохраняет `ncu_profiling_results_*.xlsx`.
+  - Флаг `-m/--shared_memory` передаётся в бенчмарк.
+  
+  ```bash
+  python3 profilers/profile_cuda_ncu.py build/benchmark_gpu dump/ \
+    -m --gauss-only --gauss-size 3 --gauss-sigma 1.0 --save-mode single
+  ```
+
+- CUDA (nvprof, устаревший): `profilers/profile_cuda_nvprof.py`
+  - Использует `nvprof --csv`, сохраняет листы по конфигурациям и строит графики в Excel, файл `cuda_profiling_results_*.xlsx`.
+  - Флаг `-m/--shared_memory` передаётся в бенчмарк.
+  
+  ```bash
+  python3 profilers/profile_cuda_nvprof.py build/benchmark_gpu dump/ -m
+  ```
+
+По умолчанию скрипты используют наборы размеров и повторов, заданные внутри файлов, и помещают результаты в указанную директорию (например, `dump/`).
+
 ## Документация (Doxygen)
 
 Сгенерируйте документацию:
@@ -105,6 +168,7 @@ doxygen Doxyfile
 - `tests/` — модульные тесты.
 - `images/` — рабочая директория с результатами.
   - `original/`, `prewitt/`, `sobel/`, `gaussian/`, `arbitrary_kernel/`, `speedtest/` — будут созданы автоматически при первом запуске.
+- `profilers/` — Python‑скрипты профилирования для CPU/CUDA/OpenCL.
 - `external/`, `external_build/` — исходники и артефакты сторонних зависимостей.
 - `doxygen/` — выходная директория документации.
 
