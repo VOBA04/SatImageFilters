@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   coverage:
@@ -31,26 +32,38 @@ jobs:
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
-      
+
       - name: Build and run tests
         run: |
           cd build
           make coverage
-      
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: build/coverage_report/
           if-no-files-found: warn
-      
+
       - name: Extract coverage percentage
         run: |
           COVERAGE=$(lcov --summary build/coverage.info --ignore-errors empty,version | grep -Po 'lines.*: \K[0-9.]+%')
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
           echo "Coverage: $COVERAGE"
-      
+
+      - name: Validate Gist auth
+        if: github.event_name == 'push'
+        run: |
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GIST_SECRET }}" \
+            https://api.github.com/gists/${{ secrets.GIST_ID }})
+          if [ "$CODE" != "200" ]; then
+            echo "Gist auth failed with HTTP $CODE. Проверьте GIST_SECRET/GIST_ID/права токена."
+            exit 1
+          fi
+
       - name: Create coverage badge
+        if: github.event_name == 'push'
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
