@@ -39,19 +39,19 @@
  */
 class TIFFImage {
  private:
-  TIFF* tif_ = nullptr;             ///< Указатель на объект TIFF.
-  size_t width_ = 0;                ///< Ширина изображения.
-  size_t height_ = 0;               ///< Высота изображения.
+  TIFF* tif_ = nullptr;  ///< Указатель на объект TIFF.
+  size_t width_ = 0;     ///< Ширина изображения.
+  size_t height_ = 0;    ///< Высота изображения.
   uint16_t samples_per_pixel_ = 1;  ///< Количество каналов на пиксель.
-  uint16_t bits_per_sample_ = 16;   ///< Бит на канал.
+  uint16_t bits_per_sample_ = 16;  ///< Бит на канал.
   uint16_t photo_metric_ =
-      PHOTOMETRIC_MINISBLACK;                ///< Фотометрическая интерпретация.
+      PHOTOMETRIC_MINISBLACK;  ///< Фотометрическая интерпретация.
   uint16_t resolution_unit_ = RESUNIT_NONE;  ///< Единица измерения разрешения.
-  uint16_t config_ = PLANARCONFIG_CONTIG;    ///< Конфигурация плоскостей.
-  bool photo_metric_enabled_ = true;         ///< Флаг включения фотометрии.
+  uint16_t config_ = PLANARCONFIG_CONTIG;  ///< Конфигурация плоскостей.
+  bool photo_metric_enabled_ = true;  ///< Флаг включения фотометрии.
   bool resolution_unit_enabled_ = true;  ///< Флаг включения единицы разрешения.
-  float resolution_x_ = 0.0f;            ///< Разрешение по оси X.
-  float resolution_y_ = 0.0f;            ///< Разрешение по оси Y.
+  float resolution_x_ = 0.0f;  ///< Разрешение по оси X.
+  float resolution_y_ = 0.0f;  ///< Разрешение по оси Y.
   uint16_t* image_ =
       nullptr;  ///< Одномерный массив, представляющий изображение.
 #ifdef BUILD_WITH_CUDA
@@ -82,6 +82,14 @@ class TIFFImage {
   float cl_gaussian_sigma_ = 0.0f;
   std::vector<ImageOperation> cl_image_operations_{};
   bool cl_allocated_ = false;
+
+  // Профилирование OpenCL: хранение событий/метрик по ядрам
+  struct ClProfileRecord {
+    std::string name;
+    double ms = 0.0;  // продолжительность выполнения ядра на устройстве
+  };
+  mutable bool cl_profile_enabled_ = false;
+  mutable std::vector<ClProfileRecord> cl_profile_records_{};
 
   // Вспомогательные методы OpenCL (инициализация/компиляция/очистка)
   void EnsureOpenCLInitialized();
@@ -301,6 +309,20 @@ class TIFFImage {
   void CopyImageToOpenCLDevice();
   void FreeOpenCLMemory();
 
+  // Управление профилированием OpenCL
+  void OpenCLProfilingEnable(bool enable = true);
+  void OpenCLProfilingClear();
+  const std::vector<ClProfileRecord>& OpenCLProfilingRecords() const {
+    return cl_profile_records_;
+  }
+  double OpenCLProfilingTotalMs() const {
+    double sum = 0.0;
+    for (const auto& r : cl_profile_records_) {
+      sum += r.ms;
+    }
+    return sum;
+  }
+
   /**
    * @brief Оператор сравнения.
    *
@@ -451,41 +473,41 @@ class TIFFImage {
   TIFFImage GaussianBlurSep(const size_t size = 3,
                             const float sigma = 0.0) const;
 
-/**
- * @brief Применяет фильтр Гаусса к изображению с использованием CUDA.
- *
- * Создает новое изображение, применяя фильтр Гаусса с использованием CUDA.
- *
- * @param size Размер фильтра (должен быть нечетным).
- * @param sigma Стандартное отклонение (опционально).
- * @return Новое изображение с примененным фильтром Гаусса.
- */
-#ifdef BUILD_WITH_CUDA
-  TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0);
-#endif
+  /**
+   * @brief Применяет фильтр Гаусса к изображению с использованием CUDA.
+   *
+   * Создает новое изображение, применяя фильтр Гаусса с использованием CUDA.
+   *
+   * @param size Размер фильтра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
+   * @return Новое изображение с примененным фильтром Гаусса.
+   */
+  TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0,
+                             const bool shared_memory = false);
 
-  TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0);
+  TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0,
+                               const bool shared_memory = false);
 
-/**
- * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
- * CUDA.
- *
- * Создает новое изображение, применяя разделенный фильтр Гаусса с
- * использованием вычислений на GPU через CUDA. Разделенный фильтр Гаусса
- * выполняет свертку по одной оси (горизонтальной или вертикальной) за один
- * проход, что значительно снижает вычислительную сложность. Использование
- * CUDA дополнительно ускоряет обработку для изображений большого размера.
- *
- * @param size Размер фильтра (должен быть нечетным).
- * @param sigma Стандартное отклонение (опционально).
- * @return Новое изображение с примененным разделенным фильтром Гаусса.
- */
-#ifdef BUILD_WITH_CUDA
-  TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0);
-#endif
+  /**
+   * @brief Применяет разделенный фильтр Гаусса к изображению с использованием
+   * CUDA.
+   *
+   * Создает новое изображение, применяя разделенный фильтр Гаусса с
+   * использованием вычислений на GPU через CUDA. Разделенный фильтр Гаусса
+   * выполняет свертку по одной оси (горизонтальной или вертикальной) за один
+   * проход, что значительно снижает вычислительную сложность. Использование
+   * CUDA дополнительно ускоряет обработку для изображений большого размера.
+   *
+   * @param size Размер фильтра (должен быть нечетным).
+   * @param sigma Стандартное отклонение (опционально).
+   * @return Новое изображение с примененным разделенным фильтром Гаусса.
+   */
+  TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0,
+                                const bool shared_memory = false);
 
   TIFFImage GaussianBlurSepOpenCL(const size_t size = 3,
-                                  const float sigma = 0.0);
+                                  const float sigma = 0.0,
+                                  const bool shared_memory = false);
 
 #ifdef USE_QT
   /**

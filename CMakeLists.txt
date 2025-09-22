@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(BUILD_WITH_CUDA "Build CUDA-dependent components (CUDA language, libs, and targets)" ON)
+
+# Always declare CXX; enable CUDA language later only if BUILD_WITH_CUDA=ON
 project(SatImageFilters LANGUAGES CXX)
 enable_testing()
 option(BUILD_WITH_CUDA "Build CUDA-dependent components (CUDA language, libs, and targets)" ON)
@@ -14,6 +17,7 @@ list(APPEND CMAKE_PREFIX_PATH
     ${EXTERNAL_BUILD_DIR}/gtest_install
     ${EXTERNAL_BUILD_DIR}/libtiff_install 
     ${EXTERNAL_BUILD_DIR}/opencv_install
+    ${EXTERNAL_BUILD_DIR}/opencl_install
 )
 
 find_package(GTest QUIET)
@@ -22,8 +26,13 @@ if(GTest_FOUND)
 else()
     message(STATUS "Google Test не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/googletest -B ${EXTERNAL_BUILD_DIR}/gtest_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/googletest
+                -B ${EXTERNAL_BUILD_DIR}/gtest_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/gtest_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_GMOCK=OFF
                 -DINSTALL_GTEST=ON
         RESULT_VARIABLE GTEST_CONFIGURE_RESULT
@@ -47,8 +56,13 @@ if(TIFF_FOUND)
 else()
     message(STATUS "libtiff не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/libtiff -B ${EXTERNAL_BUILD_DIR}/libtiff_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/libtiff
+                -B ${EXTERNAL_BUILD_DIR}/libtiff_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/libtiff_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_SHARED_LIBS=ON
         RESULT_VARIABLE LIBTIFF_CONFIGURE_RESULT
     )
@@ -71,8 +85,13 @@ if(OpenCV_FOUND)
 else()
     message(STATUS "OpenCV не найден, выполняем сборку")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencv -B ${EXTERNAL_BUILD_DIR}/opencv_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/opencv
+                -B ${EXTERNAL_BUILD_DIR}/opencv_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencv_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DWITH_CUDA=OFF
                 -DBUILD_opencv_core=ON
                 -DBUILD_opencv_imgproc=ON
@@ -108,10 +127,16 @@ else()
     message(STATUS "OpenCL не найден, выполняем сборку")
     set(OPENCL_HEADERS_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader -B ${EXTERNAL_BUILD_DIR}/opencl_build
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-ICD-Loader
+                -B ${EXTERNAL_BUILD_DIR}/opencl_build
                 -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_SHARED_LIBS=ON
-                -DOPENCL_ICD_LOADER_HEADERS_DIR=${OPENCL_HEADERS_DIR}
+                -DCMAKE_PREFIX_PATH=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DOpenCLHeaders_DIR=${EXTERNAL_BUILD_DIR}/opencl_install/lib/cmake/OpenCLHeaders
         RESULT_VARIABLE OPENCL_CONFIGURE_RESULT
     )
     if(NOT OPENCL_CONFIGURE_RESULT EQUAL 0)
@@ -134,11 +159,43 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd /W2 /EHsc /Zc:__cplusplus")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=/W2,/EHsc,/Zc:__cplusplus -Wno-deprecated-gpu-targets")
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:CXX>:/W3>
+        $<$<COMPILE_LANGUAGE:CXX>:/EHsc>
+        $<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>
+    )
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+
+    # Debug: enable symbols and disable optimizations
+    set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MDd /Zi /Od")
+    set(CMAKE_CUDA_FLAGS_DEBUG  "${CMAKE_CUDA_FLAGS_DEBUG} -G -Xcompiler=/MDd,/Zi,/Od")
+
+    # Release: enable optimizations and define NDEBUG (no debug overhead)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /DNDEBUG /MD")
+    set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3 -Xcompiler=/MD")
+
+    # RelWithDebInfo: optimizations with debug info; CUDA with line info (no -G)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /O2 /Zi /DNDEBUG /MD")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -O3 -lineinfo -Xcompiler=/MD")
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -pedantic")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -Wall -Wno-deprecated-gpu-targets")
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+        $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
+    )
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+
+    # Debug: symbols and no optimizations (no -lineinfo with -G to avoid warnings)
+    set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+    set(CMAKE_CUDA_FLAGS_DEBUG  "${CMAKE_CUDA_FLAGS_DEBUG} -g -G -Xcompiler=-O0")
+
+    # Release: strong optimizations and no debug info
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3 -DNDEBUG")
+
+    # RelWithDebInfo: optimized with symbols; CUDA line info helps profiling
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3 -g -DNDEBUG")
+    set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "${CMAKE_CUDA_FLAGS_RELWITHDEBINFO} -O3 -lineinfo -DNDEBUG")
 endif()
 
 
@@ -200,13 +257,15 @@ if(BUILD_WITH_CUDA)
 endif()
 find_package(Qt6 COMPONENTS Core Gui Widgets)
 
-if(BUILD_WITH_CUDA AND Qt6_FOUND)
+if(Qt6_FOUND AND BUILD_WITH_CUDA)
     message(STATUS "Qt6 found, GUI target will be built")
     set(CMAKE_AUTOMOC ON)
     set(CMAKE_AUTORCC ON)
     set(CMAKE_AUTOUIC ON)
 
-    file(GLOB GUI_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu" "${SOURCE_GUI_DIR}/*.cpp" "${SOURCE_GUI_DIR}/*.ui" "${MAINS_DIR}/gui.cpp")
+    file(GLOB GUI_SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_GUI_DIR}/*.cpp" "${SOURCE_GUI_DIR}/*.ui" "${MAINS_DIR}/gui.cpp")
+    file(GLOB GUI_CU_SOURCES "${SOURCE_DIR}/*.cu")
+    list(APPEND GUI_SOURCES ${GUI_CU_SOURCES})
     file(GLOB GUI_INCLUDE "${INCLUDE_GUI_DIR}/*.h")
 
     qt6_wrap_cpp(GUI_MOC_SOURCES ${GUI_INCLUDE})
@@ -220,7 +279,7 @@ if(BUILD_WITH_CUDA AND Qt6_FOUND)
     set_target_properties(gui PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
     target_compile_definitions(gui PRIVATE USE_QT)
 else()
-    message(WARNING "Qt6 not found, GUI target will not be built")
+    message(WARNING "Qt6 not found or CUDA disabled, GUI target will not be built")
 endif()
 
 include_directories(${SOURCE_DIR})
@@ -232,74 +291,72 @@ include_directories(${TIFF_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${OpenCL_INCLUDE_DIRS})
 
+file(GLOB CPP_SOURCES "${SOURCE_DIR}/*.cpp")
 if(BUILD_WITH_CUDA)
-    file(GLOB SOURCES "${SOURCE_DIR}/*.cpp" "${SOURCE_DIR}/*.cu")
-    add_library(common STATIC ${SOURCES})
-    target_include_directories(common PUBLIC
-        ${SOURCE_DIR}
-        ${INCLUDE_DIR}
-        ${CUDAToolkit_INCLUDE_DIRS}
-        ${TIFF_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        ${OpenCL_INCLUDE_DIRS}
-    )
-    target_link_libraries(common PUBLIC
-        TIFF::TIFF 
-        CUDA::cudart 
-        CUDA::cuda_driver
-        OpenCL::OpenCL
-    )
+    file(GLOB CU_SOURCES "${SOURCE_DIR}/*.cu")
+    set(SOURCES ${CPP_SOURCES} ${CU_SOURCES})
+else()
+    set(SOURCES ${CPP_SOURCES})
+endif()
+add_library(common STATIC ${SOURCES})
+target_include_directories(common PUBLIC
+    ${SOURCE_DIR}
+    ${INCLUDE_DIR}
+    ${TIFF_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    ${OpenCL_INCLUDE_DIRS}
+)
+target_link_libraries(common PUBLIC
+    TIFF::TIFF
+    OpenCL::OpenCL
+)
+if(BUILD_WITH_CUDA)
+    target_include_directories(common PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
+    target_link_libraries(common PUBLIC CUDA::cudart CUDA::cuda_driver)
     set_target_properties(common 
         PROPERTIES CUDA_SEPARABLE_COMPILATION ON
         CUDA_RESOLVE_DEVICE_SYMBOLS ON
     )
-else()
-    file(GLOB COMMON_OPENCL_SOURCES "${SOURCE_DIR}/*.cpp")
-    list(FILTER COMMON_OPENCL_SOURCES EXCLUDE REGEX ".*/cuda_mem_manager\\.cpp$")
-    add_library(common_opencl STATIC ${COMMON_OPENCL_SOURCES})
-    target_include_directories(common_opencl PUBLIC
-        ${SOURCE_DIR}
-        ${INCLUDE_DIR}
-        ${TIFF_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        ${OpenCL_INCLUDE_DIRS}
-    )
-    target_link_libraries(common_opencl PUBLIC
-        TIFF::TIFF
-        OpenCL::OpenCL
-    )
 endif()
 
+set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp" "${TESTS_DIR}/test_tiff_image_opencl.cpp")
 if(BUILD_WITH_CUDA)
-    set(TEST_SOURCES "${TESTS_DIR}/test_kernel.cpp" "${TESTS_DIR}/test_tiff_image_opencl.cpp")
     if(CMAKE_CUDA_STANDARD GREATER_EQUAL 17)
         list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image.cpp")
     else()
         list(APPEND TEST_SOURCES "${TESTS_DIR}/test_tiff_image_old.cpp")
     endif()
-
-    add_executable(${PROJECT_NAME} "${MAINS_DIR}/main.cpp")
-    add_executable(speedtest "${MAINS_DIR}/speedtest.cpp")
-    add_executable(unit_tests ${TEST_SOURCES})
-    add_executable(benchmark_gpu "${MAINS_DIR}/benchmark_gpu.cpp")
-    add_executable(main_opencl "${MAINS_DIR}/main_opencl.cpp")
-
-    target_link_libraries(${PROJECT_NAME} PRIVATE common)
-    target_link_libraries(speedtest PRIVATE common)
-    target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtest_main common)
-    target_link_libraries(benchmark_gpu PRIVATE common)
-    target_link_libraries(main_opencl PRIVATE common OpenCL::OpenCL)
-else()
-    add_executable(main_opencl "${MAINS_DIR}/main_opencl.cpp")
-    target_link_libraries(main_opencl PRIVATE common_opencl OpenCL::OpenCL)
-    set(TEST_SOURCES_OCL "${TESTS_DIR}/test_kernel.cpp" "${TESTS_DIR}/test_tiff_image_opencl.cpp")
-    add_executable(unit_tests ${TEST_SOURCES_OCL})
-    target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtest_main common_opencl)
-    add_test(NAME unit_tests COMMAND unit_tests)
 endif()
 
 if(BUILD_WITH_CUDA)
-foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
+    add_executable(${PROJECT_NAME} "${MAINS_DIR}/main.cpp")
+    add_executable(speedtest "${MAINS_DIR}/speedtest.cpp")
+endif()
+add_executable(unit_tests ${TEST_SOURCES})
+if(BUILD_WITH_CUDA)
+    add_executable(benchmark_gpu "${MAINS_DIR}/benchmark_gpu.cpp")
+endif()
+add_executable(benchmark_cpu "${MAINS_DIR}/benchmark_cpu.cpp")
+add_executable(main_opencl "${MAINS_DIR}/main_opencl.cpp")
+add_executable(benchmark_opencl "${MAINS_DIR}/benchmark_opencl.cpp")
+
+if(BUILD_WITH_CUDA)
+    target_link_libraries(${PROJECT_NAME} PRIVATE common)
+    target_link_libraries(speedtest PRIVATE common)
+endif()
+target_link_libraries(unit_tests PRIVATE ${OpenCV_LIBS} GTest::gtest GTest::gtest_main common)
+if(BUILD_WITH_CUDA)
+    target_link_libraries(benchmark_gpu PRIVATE common)
+endif()
+target_link_libraries(benchmark_cpu PRIVATE common)
+target_link_libraries(main_opencl PRIVATE common OpenCL::OpenCL)
+target_link_libraries(benchmark_opencl PRIVATE common OpenCL::OpenCL)
+
+set(_all_targets unit_tests benchmark_cpu benchmark_opencl)
+if(BUILD_WITH_CUDA)
+    list(APPEND _all_targets ${PROJECT_NAME} speedtest benchmark_gpu)
+endif()
+foreach(target ${_all_targets})
     if(WIN32)
          if(EXISTS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin")
             file(GLOB TIFF_DLLS "${EXTERNAL_BUILD_DIR}/libtiff_install/bin/*.dll")
@@ -309,6 +366,17 @@ foreach(target ${PROJECT_NAME} speedtest unit_tests benchmark_gpu)
                         "${dll}"
                         $<TARGET_FILE_DIR:${target}>
                     COMMENT "Копирование TIFF DLL (${dll}) для ${target}"
+                )
+            endforeach()
+        endif()
+        if(EXISTS "${EXTERNAL_BUILD_DIR}/opencl_install/bin")
+            file(GLOB OPENCL_DLLS "${EXTERNAL_BUILD_DIR}/opencl_install/bin/*OpenCL*.dll")
+            foreach(dll ${OPENCL_DLLS})
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "${dll}"
+                        $<TARGET_FILE_DIR:${target}>
+                    COMMENT "Копирование OpenCL DLL (${dll}) для ${target}"
                 )
             endforeach()
         endif()
@@ -323,7 +391,8 @@ add_custom_target(copy_opencl_kernels ALL
     COMMENT "Copying OpenCL kernels.cl to build dir"
 )
 add_dependencies(main_opencl copy_opencl_kernels)
-if(BUILD_WITH_CUDA AND WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
+add_dependencies(benchmark_opencl copy_opencl_kernels)
+if(WIN32 AND EXISTS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin")
     file(GLOB OPENCV_DLLS "${EXTERNAL_BUILD_DIR}/opencv_install/x64/vc16/bin/*.dll")
     foreach(dll ${OPENCV_DLLS})
         add_custom_command(TARGET unit_tests POST_BUILD
@@ -371,6 +440,7 @@ if(BUILD_WITH_CUDA)
     endif()
 endif()
 
+message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 if(BUILD_WITH_CUDA)
     message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CUDAToolkit_INCLUDE_DIRS}")
     message(STATUS "CUDA Toolkit версия: ${CUDAToolkit_VERSION}")
@@ -379,4 +449,3 @@ if(BUILD_WITH_CUDA)
     message(STATUS "NVCC Version: ${CMAKE_CUDA_COMPILER_VERSION}")
     message(STATUS "CUDA Architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
-message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")

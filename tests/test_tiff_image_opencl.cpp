@@ -145,8 +145,10 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
     TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
-    TIFFImage blurred_ocl = img.GaussianBlurOpenCL(3, 1.0);
-    TIFFImage blurred_ocl_sep = img.GaussianBlurSepOpenCL(3, 1.0);
+    TIFFImage blurred_ocl = img.GaussianBlurOpenCL(3, 1.0, false);
+    TIFFImage blurred_ocl_shared = img.GaussianBlurOpenCL(3, 1.0, true);
+    TIFFImage blurred_ocl_sep = img.GaussianBlurSepOpenCL(3, 1.0, false);
+    TIFFImage blurred_ocl_sep_shared = img.GaussianBlurSepOpenCL(3, 1.0, true);
     TIFFImage blurred_ocl_2 = img.GaussianBlurOpenCL(3, 2.0);
 
     // Pre-allocated path
@@ -175,6 +177,12 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
           failed = true;
           break;
         }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_shared.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_mem.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
         if (HasFailure()) {
@@ -182,6 +190,12 @@ TEST(OpenCLImageTest, GaussianBlurOpenCL) {
           break;
         }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_sep_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_ocl_sep_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ") image " << k;
         if (HasFailure()) {
           failed = true;
@@ -217,8 +231,11 @@ TEST(OpenCLImageTest, SobelFilterOpenCL) {
     TIFFImage sobel_ocl_shared = img.SetKernelOpenCL(kKernelSobel, true);
     EXPECT_TRUE(sobel == sobel_ocl_shared) << "Image: " << k;
 
-    TIFFImage sobel_ocl_sep = img.SetKernelSobelSepOpenCL();
+    TIFFImage sobel_ocl_sep = img.SetKernelSobelSepOpenCL(false);
     EXPECT_TRUE(sobel == sobel_ocl_sep) << "Image: " << k;
+    // Shared-memory separable path
+    TIFFImage sobel_ocl_sep_shared = img.SetKernelSobelSepOpenCL(true);
+    EXPECT_TRUE(sobel == sobel_ocl_sep_shared) << "Image: " << k;
 
     // Pre-allocated path
     img.SetImagePatametersForOpenCLOps(ImageOperation::Sobel);
@@ -230,7 +247,9 @@ TEST(OpenCLImageTest, SobelFilterOpenCL) {
                                        ImageOperation::Separated);
     img.ReallocateOpenCLMemory();
     img.CopyImageToOpenCLDevice();
-    sobel_ocl_sep = img.SetKernelSobelSepOpenCL();
+    sobel_ocl_sep = img.SetKernelSobelSepOpenCL(false);
+    EXPECT_TRUE(sobel == sobel_ocl_sep) << "Image: " << k;
+    sobel_ocl_sep = img.SetKernelSobelSepOpenCL(true);
     EXPECT_TRUE(sobel == sobel_ocl_sep) << "Image: " << k;
     img.FreeOpenCLMemory();
   }
@@ -252,8 +271,10 @@ TEST(OpenCLImageTest, PrewittFilterOpenCL) {
     // Also test shared memory variant (uses local memory)
     TIFFImage prewitt_ocl_shared = img.SetKernelOpenCL(kKernelPrewitt, true);
     EXPECT_TRUE(prewitt == prewitt_ocl_shared) << "Image: " << k;
-    TIFFImage prewitt_ocl_sep = img.SetKernelPrewittSepOpenCL();
+    TIFFImage prewitt_ocl_sep = img.SetKernelPrewittSepOpenCL(false);
     EXPECT_TRUE(prewitt == prewitt_ocl_sep) << "Image: " << k;
+    TIFFImage prewitt_ocl_sep_shared = img.SetKernelPrewittSepOpenCL(true);
+    EXPECT_TRUE(prewitt == prewitt_ocl_sep_shared) << "Image: " << k;
 
     // Pre-allocated path
     img.SetImagePatametersForOpenCLOps(ImageOperation::Prewitt);
@@ -265,7 +286,9 @@ TEST(OpenCLImageTest, PrewittFilterOpenCL) {
                                        ImageOperation::Separated);
     img.ReallocateOpenCLMemory();
     img.CopyImageToOpenCLDevice();
-    prewitt_ocl_sep = img.SetKernelPrewittSepOpenCL();
+    prewitt_ocl_sep = img.SetKernelPrewittSepOpenCL(false);
+    EXPECT_TRUE(prewitt == prewitt_ocl_sep) << "Image: " << k;
+    prewitt_ocl_sep = img.SetKernelPrewittSepOpenCL(true);
     EXPECT_TRUE(prewitt == prewitt_ocl_sep) << "Image: " << k;
     img.FreeOpenCLMemory();
   }
@@ -288,6 +311,34 @@ TEST(OpenCLImageTest, Arbitrary3x3KernelSharedVsNonShared) {
   TIFFImage cpu = img.SetKernel(mean3, false);
   TIFFImage ocl_noshared = img.SetKernelOpenCL(mean3, false, false);
   TIFFImage ocl_shared = img.SetKernelOpenCL(mean3, true, false);
+
+  EXPECT_TRUE(cpu == ocl_noshared);
+  EXPECT_TRUE(cpu == ocl_shared);
+  DeleteTempDir(temp_dir);
+}
+
+TEST(OpenCLImageTest, Arbitrary5x5KernelSharedVsNonShared) {
+  std::string ocl_error;
+  if (!IsOpenCLAvailable(&ocl_error)) {
+    GTEST_SKIP() << "Skipping OpenCL tests: " << ocl_error;
+  }
+  namespace fs = std::filesystem;
+  fs::path temp_dir = GetTempDir();
+  CreateTestImage(temp_dir, 96, 96, 4);  // random image
+  TIFFImage img(temp_dir / kTestImage);
+
+  // 5x5 Gaussian-like integer kernel (unnormalized to preserve integer math)
+  Kernel<int> k5(5, 5,
+                 {{1, 4, 6, 4, 1},
+                  {4, 16, 24, 16, 4},
+                  {6, 24, 36, 24, 6},
+                  {4, 16, 24, 16, 4},
+                  {1, 4, 6, 4, 1}},
+                 false);
+
+  TIFFImage cpu = img.SetKernel(k5, false);
+  TIFFImage ocl_noshared = img.SetKernelOpenCL(k5, false, false);
+  TIFFImage ocl_shared = img.SetKernelOpenCL(k5, true, false);
 
   EXPECT_TRUE(cpu == ocl_noshared);
   EXPECT_TRUE(cpu == ocl_shared);

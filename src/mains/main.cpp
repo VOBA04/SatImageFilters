@@ -86,25 +86,28 @@ int main() {
                   << image_name << std::endl;
         continue;
       }
+      TIFFImage gaussian_image;
+#ifdef BUILD_WITH_CUDA
       image.SetImagePatametersForDevice(ImageOperation::GaussianBlurSep |
                                             ImageOperation::Prewitt |
                                             ImageOperation::Sobel,
                                         9, 5);
       image.AllocateDeviceMemory();
       image.CopyImageToDevice();
-      // TIFFImage gaussian_image = image.GaussianBlur(9, 5);
-      // TIFFImage gaussian_image = image.GaussianBlurSep(9, 5);
-      // TIFFImage gaussian_image = image.GaussianBlurCuda(9, 5);
-      TIFFImage gaussian_image = image.GaussianBlurSepCuda(9, 5);
+      gaussian_image = image.GaussianBlurSepCuda(9, 5);
+#else
+      gaussian_image = image.GaussianBlurSep(9, 5);
+#endif
       if (!fs::exists(gaussian_images_dir)) {
         fs::create_directory(gaussian_images_dir);
       }
       gaussian_image.Save(gaussian_images_dir / image_name);
-      // TIFFImage prewitt_image = gaussian_image.SetKernel(kKernelPrewitt);
-      // TIFFImage prewitt_image = gaussian_image.SetKernelCuda(kKernelPrewitt);
-      // TIFFImage prewitt_image = gaussian_image.SetKernelPrewittSep();
-      // TIFFImage prewitt_image = gaussian_image.SetKernelPrewittSepCuda();
-      TIFFImage prewitt_image = gaussian_image.SetKernelCuda(kKernelPrewitt);
+      TIFFImage prewitt_image =
+#ifdef BUILD_WITH_CUDA
+          gaussian_image.SetKernelCuda(kKernelPrewitt);
+#else
+          gaussian_image.SetKernel(kKernelPrewitt);
+#endif
       if (!fs::exists(prewitt_images_dir)) {
         fs::create_directory(prewitt_images_dir);
       }
@@ -112,19 +115,23 @@ int main() {
       if (!fs::exists(sobel_images_dir)) {
         fs::create_directory(sobel_images_dir);
       }
-      // TIFFImage sobel_image = gaussian_image.SetKernel(kKernelSobel);
-      // TIFFImage sobel_image = gaussian_image.SetKernelCuda(kKernelSobel);
-      // TIFFImage sobel_image = gaussian_image.SetKernelSobelSep();
-      // TIFFImage sobel_image = gaussian_image.SetKernelSobelSepCuda();
-      TIFFImage sobel_image = gaussian_image.SetKernelCuda(kKernelSobel);
+      TIFFImage sobel_image =
+#ifdef BUILD_WITH_CUDA
+          gaussian_image.SetKernelCuda(kKernelSobel);
+#else
+          gaussian_image.SetKernel(kKernelSobel);
+#endif
       sobel_image.Save(sobel_images_dir / image_name);
       if (fs::exists(kernel_path)) {
         Kernel<int> arbitrary_kernel;
         try {
           arbitrary_kernel.SetFromFile(kernel_path);
-          // TIFFImage arbitrary_image =
-          //     gaussian_image.SetKernel(arbitrary_kernel);
-          TIFFImage arbitrary_image = image.SetKernelCuda(arbitrary_kernel);
+          TIFFImage arbitrary_image =
+#ifdef BUILD_WITH_CUDA
+              image.SetKernelCuda(arbitrary_kernel);
+#else
+              image.SetKernel(arbitrary_kernel);
+#endif
           if (!fs::exists(arbitrary_kernel_dir)) {
             fs::create_directory(arbitrary_kernel_dir);
           }

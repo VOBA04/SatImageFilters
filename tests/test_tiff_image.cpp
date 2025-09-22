@@ -243,8 +243,10 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
     TIFFImage img(temp_dir / kTestImage);
     TIFFImage blurred_cpu = img.GaussianBlur(3, 1.0);
     TIFFImage blurred_cpu_2 = img.GaussianBlur(3, 2.0);
-    TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0);
-    TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0);
+    TIFFImage blurred_cuda = img.GaussianBlurCuda(3, 1.0, false);
+    TIFFImage blurred_cuda_shared = img.GaussianBlurCuda(3, 1.0, true);
+    TIFFImage blurred_cuda_sep = img.GaussianBlurSepCuda(3, 1.0, false);
+    TIFFImage blurred_cuda_sep_shared = img.GaussianBlurSepCuda(3, 1.0, true);
     TIFFImage blurred_cuda_2 = img.GaussianBlurCuda(3, 2.0);
     img.SetImagePatametersForDevice(ImageOperation::GaussianBlur, 3, 1.0);
     img.AllocateDeviceMemory();
@@ -258,6 +260,13 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
     for (size_t i = 0; i < img.GetHeight() && !failed; i++) {
       for (size_t j = 0; j < img.GetWidth(); j++) {
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ")"
             << " image " << k;
         if (HasFailure()) {
@@ -279,6 +288,13 @@ TEST(TIFFImageTest, GaussianBlurGPU) {
           break;
         }
         EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_sep_mem.Get(j, i), 1)
+            << "Mismatch at pixel (" << j << ", " << i << ")"
+            << " image " << k;
+        if (HasFailure()) {
+          failed = true;
+          break;
+        }
+        EXPECT_NEAR(blurred_cpu.Get(j, i), blurred_cuda_sep_shared.Get(j, i), 1)
             << "Mismatch at pixel (" << j << ", " << i << ")"
             << " image " << k;
         if (HasFailure()) {
@@ -474,6 +490,134 @@ TEST(TIFFImageTest, PrewittFilterGPU) {
     prewitt_cuda_sep = img.SetKernelPrewittSepCuda();
     EXPECT_TRUE(prewitt == prewitt_cuda_sep) << "Image: " << k;
     img.FreeDeviceMemory();
+  }
+  DeleteTempDir(temp_dir);
+}
+
+TEST(TIFFImageTest, SetKernelArbitraryCPU) {
+  fs::path temp_dir = GetTempDir();
+  Kernel<int> box3(3, 3, {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}}, false);
+  Kernel<int> sharpen3(3, 3, {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}}, false);
+  Kernel<int> emboss3(3, 3, {{-2, -1, 0}, {-1, 1, 1}, {0, 1, 2}}, true);
+  for (size_t k = 0; k < kTestImagesCount; ++k) {
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
+    auto cv_ref_single = [&](const Kernel<int>& ker) {
+      cv::Mat in = cv::imread((temp_dir / kTestImage).generic_string(),
+                              cv::IMREAD_UNCHANGED);
+      cv::Mat kcv(ker.GetHeight(), ker.GetWidth(), CV_32F);
+      for (int r = 0; r < (int)ker.GetHeight(); ++r) {
+        for (int c = 0; c < (int)ker.GetWidth(); ++c) {
+          kcv.at<float>(r, c) = static_cast<float>(ker.Get(c, r));
+        }
+      }
+      cv::Mat tmp32f;
+      cv::filter2D(in, tmp32f, CV_32F, kcv, cv::Point(-1, -1), 0,
+                   cv::BORDER_REPLICATE);
+      cv::Mat abs32f;
+      cv::absdiff(tmp32f, cv::Scalar(0), abs32f);
+      cv::Mat clipped32f;
+      cv::min(abs32f, 65535, clipped32f);
+      cv::Mat out16u;
+      clipped32f.convertTo(out16u, CV_16U);
+      return out16u;
+    };
+    auto cv_ref_rotate = [&](const Kernel<int>& ker) {
+      cv::Mat in = cv::imread((temp_dir / kTestImage).generic_string(),
+                              cv::IMREAD_UNCHANGED);
+      cv::Mat kcv(ker.GetHeight(), ker.GetWidth(), CV_32F);
+      for (int r = 0; r < (int)ker.GetHeight(); ++r) {
+        for (int c = 0; c < (int)ker.GetWidth(); ++c) {
+          kcv.at<float>(r, c) = static_cast<float>(ker.Get(c, r));
+        }
+      }
+      Kernel<int> ker_rot = ker.Rotate(KernelRotationDegrees::DEGREES_90);
+      cv::Mat kcv_rot(ker_rot.GetHeight(), ker_rot.GetWidth(), CV_32F);
+      for (int r = 0; r < (int)ker_rot.GetHeight(); ++r) {
+        for (int c = 0; c < (int)ker_rot.GetWidth(); ++c) {
+          kcv_rot.at<float>(r, c) = static_cast<float>(ker_rot.Get(c, r));
+        }
+      }
+      cv::Mat gx32f, gy32f;
+      cv::filter2D(in, gx32f, CV_32F, kcv, cv::Point(-1, -1), 0,
+                   cv::BORDER_REPLICATE);
+      cv::filter2D(in, gy32f, CV_32F, kcv_rot, cv::Point(-1, -1), 0,
+                   cv::BORDER_REPLICATE);
+      cv::Mat absx, absy;
+      cv::absdiff(gx32f, cv::Scalar(0), absx);
+      cv::absdiff(gy32f, cv::Scalar(0), absy);
+      cv::Mat sum32f = absx + absy;
+      cv::Mat clipped32f;
+      cv::min(sum32f, 65535, clipped32f);
+      cv::Mat out16u;
+      clipped32f.convertTo(out16u, CV_16U);
+      return out16u;
+    };
+    {
+      TIFFImage out = img.SetKernel(box3, false);
+      cv::Mat cv_ref = cv_ref_single(box3);
+      bool failed = false;
+      for (size_t i = 0; i < img.GetHeight() && !failed; ++i) {
+        for (size_t j = 0; j < img.GetWidth(); ++j) {
+          EXPECT_EQ(out.Get(j, i), cv_ref.at<uint16_t>(i, j))
+              << "Mismatch at (" << j << ", " << i << ") image " << k;
+          if (HasFailure()) {
+            failed = true;
+          }
+        }
+      }
+    }
+    {
+      TIFFImage out = img.SetKernel(sharpen3, false);
+      cv::Mat cv_ref = cv_ref_single(sharpen3);
+      bool failed = false;
+      for (size_t i = 0; i < img.GetHeight() && !failed; ++i) {
+        for (size_t j = 0; j < img.GetWidth(); ++j) {
+          EXPECT_EQ(out.Get(j, i), cv_ref.at<uint16_t>(i, j))
+              << "Mismatch at (" << j << ", " << i << ") image " << k;
+          if (HasFailure()) {
+            failed = true;
+          }
+        }
+      }
+    }
+    {
+      TIFFImage out = img.SetKernel(emboss3, true);
+      cv::Mat cv_ref = cv_ref_rotate(emboss3);
+      bool failed = false;
+      for (size_t i = 0; i < img.GetHeight() && !failed; ++i) {
+        for (size_t j = 0; j < img.GetWidth(); ++j) {
+          EXPECT_EQ(out.Get(j, i), cv_ref.at<uint16_t>(i, j))
+              << "Mismatch at (" << j << ", " << i << ") image " << k;
+          if (HasFailure()) {
+            failed = true;
+          }
+        }
+      }
+    }
+  }
+  DeleteTempDir(temp_dir);
+}
+
+TEST(TIFFImageTest, SetKernelArbitraryGPU) {
+  std::string cuda_error;
+  if (!IsCudaAvailable(&cuda_error)) {
+    GTEST_SKIP() << "Skipping CUDA tests: " << cuda_error;
+  }
+  fs::path temp_dir = GetTempDir();
+  Kernel<int> sharpen3(3, 3, {{0, -1, 0}, {-1, 5, -1}, {0, -1, 0}}, false);
+  Kernel<int> emboss3(3, 3, {{-2, -1, 0}, {-1, 1, 1}, {0, 1, 2}}, true);
+  for (size_t k = 0; k < kTestImagesCount; ++k) {
+    CreateTestImage(temp_dir, 100, 100, k);
+    TIFFImage img(temp_dir / kTestImage);
+    TIFFImage ref_sharpen = img.SetKernel(sharpen3, false);
+    TIFFImage ref_emboss_rot = img.SetKernel(emboss3, true);
+    TIFFImage gpu_sharpen_global = img.SetKernelCuda(sharpen3, false, false);
+    EXPECT_TRUE(ref_sharpen == gpu_sharpen_global) << "Image: " << k;
+    TIFFImage gpu_sharpen_shared = img.SetKernelCuda(sharpen3, true, false);
+    EXPECT_TRUE(ref_sharpen == gpu_sharpen_shared) << "Image: " << k;
+    TIFFImage gpu_emboss_rot_shared = img.SetKernelCuda(emboss3, true, true);
+    EXPECT_TRUE(ref_emboss_rot == gpu_emboss_rot_shared) << "Image: " << k;
   }
   DeleteTempDir(temp_dir);
 }

@@ -32,7 +32,7 @@ std::ostream& operator<<(std::ostream& out, Functions f) {
 
 Functions CheckFunctionArg(std::string arg) {
   std::vector<std::string> args(
-      {"Sobel", "SobelSep", "Prewitt", "PrewittSep" /*, "Gauss", "GaussSep"*/});
+      {"Sobel", "SobelSep", "Prewitt", "PrewittSep", "Gauss", "GaussSep"});
   auto it = std::find(args.begin(), args.end(), arg);
   if (it == args.end()) {
     throw std::invalid_argument("Wrong function argument: " + arg);
@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
         break;
     }
     image.AllocateDeviceMemory();
+
     image.CopyImageToDevice();
     for (size_t i = 0; i < count; i++) {
       switch (function) {
@@ -160,10 +161,10 @@ int main(int argc, char* argv[]) {
           image.SetKernelPrewittSepCuda(use_shared_memory);
           break;
         case Functions::Gauss:
-          image.GaussianBlurCuda(gauss_size, sigma);
+          image.GaussianBlurCuda(gauss_size, sigma, use_shared_memory);
           break;
         case Functions::GaussSep:
-          image.GaussianBlurSepCuda(gauss_size, sigma);
+          image.GaussianBlurSepCuda(gauss_size, sigma, use_shared_memory);
           break;
       }
     }

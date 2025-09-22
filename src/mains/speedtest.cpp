@@ -60,6 +60,7 @@ int main() {
       fout << "CPU (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#ifdef BUILD_WITH_CUDA
       image.SetImagePatametersForDevice(ImageOperation::GaussianBlur, 9, 5);
       image.AllocateDeviceMemory();
       image.CopyImageToDevice();
@@ -78,6 +79,7 @@ int main() {
       fout << "CUDA (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#endif
       fout << "Оператор Превитта:" << std::endl;
       start = ch::high_resolution_clock::now();
       image.SetKernel(kKernelPrewitt);
@@ -91,6 +93,7 @@ int main() {
       fout << "CPU (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#ifdef BUILD_WITH_CUDA
       image.SetImagePatametersForDevice(ImageOperation::Sobel |
                                         ImageOperation::Prewitt |
                                         ImageOperation::Separated);
@@ -108,6 +111,7 @@ int main() {
       fout << "CUDA (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#endif
       fout << "Оператор Собеля:" << std::endl;
       start = ch::high_resolution_clock::now();
       image.SetKernel(kKernelSobel);
@@ -121,6 +125,7 @@ int main() {
       fout << "CPU (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#ifdef BUILD_WITH_CUDA
       start = ch::high_resolution_clock::now();
       image.SetKernelCuda(kKernelSobel);
       end = ch::high_resolution_clock::now();
@@ -134,6 +139,7 @@ int main() {
       fout << "CUDA (Sep): "
            << ch::duration_cast<ch::microseconds>(end - start).count() / 1000.0
            << " ms" << std::endl;
+#endif
       fout << "=============================================================="
            << std::endl;
     }
