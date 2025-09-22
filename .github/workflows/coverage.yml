@@ -54,11 +54,40 @@ jobs:
       - name: Validate Gist auth
         if: github.event_name == 'push'
         run: |
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${{ secrets.GIST_SECRET }}" \
-            https://api.github.com/gists/${{ secrets.GIST_ID }})
-          if [ "$CODE" != "200" ]; then
-            echo "Gist auth failed with HTTP $CODE. Проверьте GIST_SECRET/GIST_ID/права токена."
+          TOKEN=$(echo -n "${{ secrets.GIST_SECRET }}" | tr -d '\r\n')
+          if [ -z "$TOKEN" ]; then
+            echo "GIST_SECRET пуст. Сохраните валидный PAT в секреты репозитория."
+            exit 1
+          fi
+
+          # 1) Проверка валидности PAT
+          USER_RESP=$(curl -s -D - -o /dev/null -H "Authorization: token $TOKEN" https://api.github.com/user)
+          USER_CODE=$(echo "$USER_RESP" | head -n1 | awk '{print $2}')
+          if [ "$USER_CODE" != "200" ]; then
+            echo "PAT недействителен (HTTP $USER_CODE). Пересоздайте токен со scope gist или Fine-grained с Gists: Read and write."
+            exit 1
+          fi
+          USER_LOGIN=$(curl -s -H "Authorization: token $TOKEN" https://api.github.com/user | grep -Po '"login":\s*"\K[^"]+')
+          echo "Token user: $USER_LOGIN"
+
+          # 2) Доступ к Gist и совпадение владельца
+          GIST_JSON=$(curl -s -H "Authorization: token $TOKEN" https://api.github.com/gists/${{ secrets.GIST_ID }})
+          if echo "$GIST_JSON" | grep -q '"message":\s*"Not Found"'; then
+            echo "Gist не найден или недоступен. Возможные причины: неверный GIST_ID, секретный Gist другого владельца."
+            exit 1
+          fi
+          if echo "$GIST_JSON" | grep -q '"message":\s*"Bad credentials"'; then
+            echo "Bad credentials при доступе к Gist. Проверьте токен и его права."
+            exit 1
+          fi
+          OWNER_LOGIN=$(echo "$GIST_JSON" | grep -Po '"owner":\s*{[^}]*"login":\s*"\K[^"]+')
+          if [ -z "$OWNER_LOGIN" ]; then
+            echo "Не удалось определить владельца Gist. Проверьте GIST_ID."
+            exit 1
+          fi
+          echo "Gist owner: $OWNER_LOGIN"
+          if [ "$OWNER_LOGIN" != "$USER_LOGIN" ]; then
+            echo "Токен принадлежит '$USER_LOGIN', а Gist — '$OWNER_LOGIN'. Для обновления нужен токен владельца Gist."
             exit 1
           fi
 
