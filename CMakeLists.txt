@@ -10,14 +10,15 @@ enable_testing()
 option(BUILD_WITH_CUDA "Build CUDA-dependent components (CUDA language, libs, and targets)" ON)
 
 
-set(EXTERNAL_BUILD_DIR "${CMAKE_SOURCE_DIR}/external_build")
-file(MAKE_DIRECTORY ${EXTERNAL_BUILD_DIR})
+set(EXTERNAL_BUILD_ROOT "${CMAKE_SOURCE_DIR}/external_build")
+set(EXTERNAL_BUILD_DIR "${EXTERNAL_BUILD_ROOT}/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+file(MAKE_DIRECTORY "${EXTERNAL_BUILD_DIR}")
 
-list(APPEND CMAKE_PREFIX_PATH 
-    ${EXTERNAL_BUILD_DIR}/gtest_install
-    ${EXTERNAL_BUILD_DIR}/libtiff_install 
-    ${EXTERNAL_BUILD_DIR}/opencv_install
-    ${EXTERNAL_BUILD_DIR}/opencl_install
+list(APPEND CMAKE_PREFIX_PATH
+    "${EXTERNAL_BUILD_DIR}/gtest_install"
+    "${EXTERNAL_BUILD_DIR}/libtiff_install"
+    "${EXTERNAL_BUILD_DIR}/opencv_install"
+    "${EXTERNAL_BUILD_DIR}/opencl_install"
 )
 
 find_package(GTest QUIET)
@@ -382,7 +383,7 @@ foreach(target ${_all_targets})
         endif()
     endif()
 endforeach()
-endif()
+
 add_custom_target(copy_opencl_kernels ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_SOURCE_DIR}/src/kernels/kernels.cl
