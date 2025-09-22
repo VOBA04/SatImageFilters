@@ -278,6 +278,16 @@ class TIFFImage {
   void Set(const size_t x, const size_t y,
            const uint16_t value) noexcept(false);
 
+  /**
+   * @brief Устанавливает новое изображение из внешнего буфера.
+   *
+   * Выделяет/перевыделяет внутренний буфер при необходимости и копирует
+   * данные изображения.
+   *
+   * @param width Ширина изображения.
+   * @param height Высота изображения.
+   * @param image Указатель на буфер исходных пикселей (size = width*height).
+   */
   void SetImage(const size_t width, const size_t height,
                 const uint16_t* image) noexcept(false);
 
@@ -300,21 +310,36 @@ class TIFFImage {
 #endif
 
   // ---------- OpenCL memory management (аналог CUDA) ----------
+  /**
+   * @brief Устанавливает параметры для последующих OpenCL-операций.
+   * @param operations Комбинация операций (см. ImageOperation).
+   * @param gaussian_kernel_size Размер ядра Гаусса (нечётный, 0 — не
+   * использовать).
+   * @param gaussian_sigma Сигма для гауссова фильтра (0.0 — авторасчёт).
+   */
   void SetImagePatametersForOpenCLOps(
       ImageOperation operations = ImageOperation::None,
       size_t gaussian_kernel_size = 0, float gaussian_sigma = 0.0f);
 
+  /** @brief Выделяет необходимые буферы на устройстве OpenCL. */
   void AllocateOpenCLMemory();
+  /** @brief Перевыделяет буферы OpenCL с учётом текущих параметров. */
   void ReallocateOpenCLMemory();
+  /** @brief Копирует изображение на устройство OpenCL. */
   void CopyImageToOpenCLDevice();
+  /** @brief Освобождает буферы устройства OpenCL. */
   void FreeOpenCLMemory();
 
   // Управление профилированием OpenCL
+  /** @brief Включает/выключает профилирование выполнения OpenCL-ядр. */
   void OpenCLProfilingEnable(bool enable = true);
+  /** @brief Очищает накопленные записи профилирования OpenCL. */
   void OpenCLProfilingClear();
+  /** @brief Возвращает массив записей профилирования OpenCL. */
   const std::vector<ClProfileRecord>& OpenCLProfilingRecords() const {
     return cl_profile_records_;
   }
+  /** @brief Возвращает суммарное время выполнения OpenCL-ядр, мс. */
   double OpenCLProfilingTotalMs() const {
     double sum = 0.0;
     for (const auto& r : cl_profile_records_) {
@@ -343,6 +368,12 @@ class TIFFImage {
    */
   TIFFImage& operator=(const TIFFImage& other);
 
+  /**
+   * @brief Вывод информации об изображении в поток.
+   * @param out Выходной поток.
+   * @param tiff_image Экземпляр TIFFImage для печати.
+   * @return Ссылка на поток out.
+   */
   friend std::ostream& operator<<(std::ostream& out,
                                   const TIFFImage& tiff_image);
 
@@ -376,6 +407,14 @@ class TIFFImage {
 #endif
 
   // --------- OpenCL compute (аналог CUDA) ----------
+  /**
+   * @brief Применяет ядро к изображению с использованием OpenCL.
+   * @param kernel Ядро свёртки.
+   * @param shared_memory Включить использование локальной (shared) памяти
+   * устройства.
+   * @param rotate Поворачивать ли ядро в соответствии с соглашениями свёртки.
+   * @return Новое изображение с применённым ядром.
+   */
   TIFFImage SetKernelOpenCL(const Kernel<int>& kernel,
                             const bool shared_memory = true,
                             const bool rotate = true) const;
@@ -482,9 +521,22 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным фильтром Гаусса.
    */
+  /**
+   * @brief Гауссово размытие на CUDA.
+   * @param size Размер ядра (нечётный).
+   * @param sigma Сигма (0.0 — авторасчёт).
+   * @param shared_memory Использовать разделяемую память (shared) в ядрах CUDA.
+   */
   TIFFImage GaussianBlurCuda(const size_t size = 3, const float sigma = 0.0,
                              const bool shared_memory = false);
 
+  /**
+   * @brief Гауссово размытие на OpenCL.
+   * @param size Размер ядра (нечётный).
+   * @param sigma Сигма (0.0 — авторасчёт).
+   * @param shared_memory Использовать локальную память устройства, если
+   * возможно.
+   */
   TIFFImage GaussianBlurOpenCL(const size_t size = 3, const float sigma = 0.0,
                                const bool shared_memory = false);
 
@@ -502,9 +554,22 @@ class TIFFImage {
    * @param sigma Стандартное отклонение (опционально).
    * @return Новое изображение с примененным разделенным фильтром Гаусса.
    */
+  /**
+   * @brief Разделённое гауссово размытие на CUDA.
+   * @param size Размер ядра (нечётный).
+   * @param sigma Сигма (0.0 — авторасчёт).
+   * @param shared_memory Использовать разделяемую память (shared) в ядрах CUDA.
+   */
   TIFFImage GaussianBlurSepCuda(const size_t size = 3, const float sigma = 0.0,
                                 const bool shared_memory = false);
 
+  /**
+   * @brief Разделённое гауссово размытие на OpenCL.
+   * @param size Размер ядра (нечётный).
+   * @param sigma Сигма (0.0 — авторасчёт).
+   * @param shared_memory Использовать локальную память устройства, если
+   * возможно.
+   */
   TIFFImage GaussianBlurSepOpenCL(const size_t size = 3,
                                   const float sigma = 0.0,
                                   const bool shared_memory = false);

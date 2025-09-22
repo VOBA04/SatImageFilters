@@ -17,9 +17,12 @@
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
+/**
+ * @brief Элемент списка операций для выпадающего списка GUI.
+ */
 struct ComboBoxItem {
-  QString display_text;
-  ImageOperation operation;
+  QString display_text;  ///< Отображаемый текст в комбобоксе
+  ImageOperation operation;  ///< Соответствующая операция обработки
 };
 
 static const ComboBoxItem kComboBoxItems[] = {
