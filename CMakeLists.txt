@@ -126,7 +126,26 @@ if(OpenCL_FOUND)
     message(STATUS "Найден OpenCL: ${OpenCL_LIBRARIES}")
 else()
     message(STATUS "OpenCL не найден, выполняем сборку")
-    set(OPENCL_HEADERS_DIR "${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND}
+                -G "${CMAKE_GENERATOR}"
+                -S ${CMAKE_SOURCE_DIR}/external/opencl/OpenCL-Headers
+                -B ${EXTERNAL_BUILD_DIR}/opencl_headers_build
+                -DCMAKE_INSTALL_PREFIX=${EXTERNAL_BUILD_DIR}/opencl_install
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+        RESULT_VARIABLE OPENCL_HEADERS_CONFIGURE_RESULT
+    )
+    if(NOT OPENCL_HEADERS_CONFIGURE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось настроить OpenCL-Headers")
+    endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --build ${EXTERNAL_BUILD_DIR}/opencl_headers_build --target install
+        RESULT_VARIABLE OPENCL_HEADERS_BUILD_RESULT
+    )
+    if(NOT OPENCL_HEADERS_BUILD_RESULT EQUAL 0)
+        message(FATAL_ERROR "Не удалось собрать или установить OpenCL-Headers")
+    endif()
     execute_process(
         COMMAND ${CMAKE_COMMAND}
                 -G "${CMAKE_GENERATOR}"
@@ -137,22 +156,38 @@ else()
                 -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                 -DBUILD_SHARED_LIBS=ON
                 -DCMAKE_PREFIX_PATH=${EXTERNAL_BUILD_DIR}/opencl_install
-                -DOpenCLHeaders_DIR=${EXTERNAL_BUILD_DIR}/opencl_install/lib/cmake/OpenCLHeaders
         RESULT_VARIABLE OPENCL_CONFIGURE_RESULT
     )
     if(NOT OPENCL_CONFIGURE_RESULT EQUAL 0)
-        message(FATAL_ERROR "Не удалось настроить OpenCL")
+        message(FATAL_ERROR "Не удалось настроить OpenCL ICD Loader")
     endif()
     execute_process(
         COMMAND ${CMAKE_COMMAND} --build ${EXTERNAL_BUILD_DIR}/opencl_build --target install
         RESULT_VARIABLE OPENCL_BUILD_RESULT
     )
     if(NOT OPENCL_BUILD_RESULT EQUAL 0)
-        message(FATAL_ERROR "Не удалось собрать или установить OpenCL")
+        message(FATAL_ERROR "Не удалось собрать или установить OpenCL ICD Loader")
     endif()
     list(APPEND CMAKE_PREFIX_PATH "${EXTERNAL_BUILD_DIR}/opencl_install")
-    set(OpenCL_INCLUDE_DIR "${OPENCL_HEADERS_DIR}")
-    set(OpenCL_LIBRARY "${EXTERNAL_BUILD_DIR}/opencl_install/lib/libOpenCL.so")
+    find_library(_OPENCL_LIB
+        NAMES OpenCL
+        PATHS "${EXTERNAL_BUILD_DIR}/opencl_install/lib" "${EXTERNAL_BUILD_DIR}/opencl_install/lib64"
+        NO_DEFAULT_PATH
+    )
+    if(_OPENCL_LIB)
+        set(OpenCL_LIBRARY "${_OPENCL_LIB}" CACHE FILEPATH "OpenCL library")
+    endif()
+    find_path(_OPENCL_INCLUDE_DIR
+        NAMES CL/cl.h
+        PATHS "${EXTERNAL_BUILD_DIR}/opencl_install/include"
+        NO_DEFAULT_PATH
+    )
+    if(_OPENCL_INCLUDE_DIR)
+        set(OpenCL_INCLUDE_DIR "${_OPENCL_INCLUDE_DIR}" CACHE PATH "OpenCL include dir")
+    endif()
+    unset(_OPENCL_LIB CACHE)
+    unset(_OPENCL_INCLUDE_DIR CACHE)
+
     find_package(OpenCL REQUIRED)
 endif()
 
@@ -230,10 +265,14 @@ if(BUILD_WITH_CUDA)
             set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80)
             set(CMAKE_CUDA_STANDARD 17)
             message(STATUS "CUDA Toolkit >= 11.0 and < 11.8: Using architectures 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5, 8.0")
-        else()
+        elseif(CUDAToolkit_VERSION VERSION_LESS "12.0")
             set(CMAKE_CUDA_ARCHITECTURES 50 52 60 61 70 72 75 80 86 89 90)
             set(CMAKE_CUDA_STANDARD 17)
-            message(STATUS "CUDA Toolkit >= 11.8: Using architectures 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5, 8.0, 8.6, 8.9, 9.0")
+            message(STATUS "CUDA Toolkit >= 11.8 and < 12.0: Using architectures 5.0, 5.2, 6.0, 6.1, 7.0, 7.2, 7.5, 8.0, 8.6, 8.9, 9.0")
+        else()
+            set(CMAKE_CUDA_ARCHITECTURES native)
+            set(CMAKE_CUDA_STANDARD 17)
+            message(STATUS "CUDA Toolkit >= 12.0: Using architectures 'native' (detected from host GPU)")
         endif()
     endif()
 
